@@ -20,8 +20,6 @@ Python script that reads CO2, temperature, humidity, pressure, and battery from 
 ├── .gitignore
 ├── aranet_logger.py           # Main script
 ├── pyproject.toml             # Python dependencies (uv)
-├── grafana/
-│   └── dashboard.json         # Importable Grafana dashboard (stat + time series panels)
 ├── README.md                  # Full setup instructions
 └── claude.md                  # This file (AI context)
 ```
@@ -44,7 +42,7 @@ Table `aranet_readings` in SQLite:
 - **BLE advertisement scan**: Uses `aranet4.client.find_nearby()` to read from BLE advertisements. No GATT connection needed — more reliable on Linux/bluez than direct connect (which hangs on this device). Requires "Smart Home integrations" enabled in the Aranet Home app.
 - **Validation**: Strict ranges (CO2 400-5000, temp -10-50C, humidity 0-100%, pressure 900-1100 hPa, battery 0-100%). Readings outside range are logged and skipped.
 - **Grafana SQLite plugin**: Reads the `.db` file directly — no intermediate server needed.
-- **Dashboard as code**: `grafana/dashboard.json` is an importable dashboard with stat panels (latest values with colour thresholds) and time series panels (24h history). Import via Dashboards > Import in Grafana.
+- **Manual Grafana setup**: Dashboard created manually in Grafana UI using SQL queries from README. Example queries provided for time series and stat panels with recommended thresholds.
 
 ## Config (.env)
 - `ARANET_MAC` - Bluetooth MAC of Aranet4 ("Smart Home integrations" must be enabled in Aranet Home app)
