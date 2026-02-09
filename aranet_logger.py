@@ -133,14 +133,16 @@ async def find_aranet4() -> str | None:
 
 
 async def discover_services(mac: str) -> None:
-    """Connect to Aranet4 and list all services/characteristics."""
+    """Connect to Aranet4 and list Aranet4-specific services/characteristics."""
     async with BleakClient(mac, timeout=30) as client:
         if not client.is_connected:
             logger.error("Failed to connect to %s", mac)
             return
         logger.info("Connected to %s", mac)
-        logger.info("Discovering services...")
+        logger.info("Discovering Aranet4 services (f0cd*)...")
         for service in client.services:
+            if not service.uuid.startswith("f0cd"):
+                continue
             logger.info("Service: %s (%s)", service.uuid, service.description)
             for char in service.characteristics:
                 props = ", ".join(char.properties)
