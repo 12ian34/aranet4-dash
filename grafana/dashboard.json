@@ -229,8 +229,10 @@
       "datasource": { "type": "frser-sqlite-datasource", "uid": "${DS_SQLITE}" },
       "targets": [
         {
+          "queryType": "time series",
           "rawQueryText": "SELECT timestamp AS time, co2_ppm FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
-          "refId": "A"
+          "refId": "A",
+          "timeColumns": ["time"]
         }
       ],
       "fieldConfig": {
@@ -275,8 +277,10 @@
       "datasource": { "type": "frser-sqlite-datasource", "uid": "${DS_SQLITE}" },
       "targets": [
         {
+          "queryType": "time series",
           "rawQueryText": "SELECT timestamp AS time, temperature_c FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
-          "refId": "A"
+          "refId": "A",
+          "timeColumns": ["time"]
         }
       ],
       "fieldConfig": {
@@ -317,8 +321,10 @@
       "datasource": { "type": "frser-sqlite-datasource", "uid": "${DS_SQLITE}" },
       "targets": [
         {
+          "queryType": "time series",
           "rawQueryText": "SELECT timestamp AS time, humidity_percent FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
-          "refId": "A"
+          "refId": "A",
+          "timeColumns": ["time"]
         }
       ],
       "fieldConfig": {
@@ -358,8 +364,10 @@
       "datasource": { "type": "frser-sqlite-datasource", "uid": "${DS_SQLITE}" },
       "targets": [
         {
+          "queryType": "time series",
           "rawQueryText": "SELECT timestamp AS time, pressure_hpa FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
-          "refId": "A"
+          "refId": "A",
+          "timeColumns": ["time"]
         }
       ],
       "fieldConfig": {
