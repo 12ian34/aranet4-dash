@@ -180,13 +180,13 @@ A pre-built dashboard JSON is included in the repo at `grafana/dashboard.json`.
 
 The dashboard includes:
 
-- **Bar gauge** — latest reading for CO2, Temperature, Humidity, Pressure, Battery with colour-coded thresholds
+- **Bar gauge** — latest reading for CO2, Temperature, Humidity, Pressure, Battery with colour-coded thresholds, plus a "Last Updated" relative timestamp
 - **CO2 time series** — with green/yellow/red threshold bands at 800/1000 ppm
-- **Temperature time series** — orange line, 10-35 C range
-- **Humidity time series** — blue line, 0-100% range
-- **Pressure time series** — purple line, 950-1050 hPa range
+- **Temperature time series** — blue line with comfort-zone threshold bands, 10-35 C range
+- **Humidity time series** — blue line with threshold bands, 0-100% range
+- **Pressure time series** — blue line, 950-1050 hPa range
 
-> **Note:** The time series queries use `CAST(strftime('%s', timestamp) AS INTEGER)` to convert timestamps to Unix epoch — the SQLite plugin requires numeric timestamps for time series charts.
+> **Note:** The `timestamp` column stores SQLite datetime strings, but the SQLite datasource plugin needs numeric Unix epoch values. Time series queries convert with `CAST(strftime('%s', timestamp) AS INTEGER)` (seconds). The bar gauge "Last Updated" field uses `* 1000` (milliseconds) so Grafana's `dateTimeFromNow` unit can display relative time like "5 min ago".
 
 ## Database schema
 
