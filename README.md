@@ -8,8 +8,10 @@ Designed to run on a Raspberry Pi via crontab.
 
 - Raspberry Pi (tested on Pi 4 / Pi 5) with Bluetooth
 - Raspberry Pi OS (Bookworm or later)
-- Python 3.9+
+- Bluetooth enabled and running (`sudo systemctl status bluetooth`)
+- Python 3.9+ (pre-installed on Bookworm)
 - [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
+- [Grafana](https://grafana.com/docs/grafana/latest/setup-grafana/installation/debian/) + [SQLite datasource plugin](https://github.com/fr-ser/grafana-sqlite-datasource) (installed in steps 8-9 below)
 - An Aranet4 sensor within Bluetooth range
 - **Smart Home integrations** enabled in the [Aranet Home](https://aranet.com/aranet-home-app) phone app (device settings) — required for BLE data access
 
@@ -18,8 +20,7 @@ All shell commands below work in both bash and fish.
 ## 1. Clone and install
 
 ```sh
-cd /home/ian/dev
-git clone <repo-url> aranet4-dash
+git clone https://github.com/12ian34/aranet4-dash.git
 cd aranet4-dash
 uv sync
 ```
@@ -53,7 +54,7 @@ Note the MAC address. If no readings appear, make sure **Smart Home integrations
 
 ```sh
 sudo mkdir -p /var/lib/aranet4-dash
-sudo chown ian:grafana /var/lib/aranet4-dash
+sudo chown $USER:grafana /var/lib/aranet4-dash
 chmod 750 /var/lib/aranet4-dash
 ```
 
@@ -81,7 +82,7 @@ POLL_INTERVAL=60
 ## 5. Test a single reading
 
 ```sh
-cd /home/ian/dev/aranet4-dash
+cd ~/dev/aranet4-dash    # or wherever you cloned the repo
 uv run aranet_logger.py --single
 ```
 
@@ -115,9 +116,9 @@ crontab -e
 Add these lines to poll every minute:
 
 ```cron
-PATH=/home/ian/.local/bin:/usr/local/bin:/usr/bin:/bin
+PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 
-* * * * * cd /home/ian/dev/aranet4-dash && uv run aranet_logger.py --single >> /home/ian/dev/aranet4-dash/cron.log 2>&1
+* * * * * cd $HOME/dev/aranet4-dash && uv run aranet_logger.py --single >> $HOME/dev/aranet4-dash/cron.log 2>&1
 ```
 
 The `PATH` line ensures cron can find `uv`. Save and exit, then verify:
@@ -129,7 +130,7 @@ crontab -l
 Check it's working after a few minutes:
 
 ```sh
-tail -f /home/ian/dev/aranet4-dash/cron.log
+tail -f ~/dev/aranet4-dash/cron.log
 ```
 
 ## 8. Install Grafana
@@ -242,7 +243,7 @@ sqlite3 /var/lib/aranet4-dash/aranet.db "VACUUM;"
 sudo systemctl status cron
 
 # Check the log
-tail -20 /home/ian/dev/aranet4-dash/cron.log
+tail -20 ~/dev/aranet4-dash/cron.log
 
 # Make sure uv is on PATH
 which uv
@@ -250,18 +251,18 @@ which uv
 
 ### Grafana can't read the database
 
-The DB lives in `/var/lib/aranet4-dash/` which is owned by `ian:grafana`. Check permissions:
+The DB lives in `/var/lib/aranet4-dash/` which should be owned by `<your-user>:grafana`. Check permissions:
 
 ```sh
 ls -la /var/lib/aranet4-dash/
-# Should show: drwxr-x--- ian grafana  (directory)
-# and:        -rw-r----- ian grafana  (aranet.db)
+# Should show: drwxr-x--- <user> grafana  (directory)
+# and:        -rw-r----- <user> grafana  (aranet.db)
 ```
 
 Fix if needed:
 
 ```sh
-sudo chown ian:grafana /var/lib/aranet4-dash /var/lib/aranet4-dash/aranet.db
+sudo chown $USER:grafana /var/lib/aranet4-dash /var/lib/aranet4-dash/aranet.db
 chmod 750 /var/lib/aranet4-dash
 chmod 640 /var/lib/aranet4-dash/aranet.db
 ```
