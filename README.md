@@ -11,6 +11,7 @@ Designed to run on a Raspberry Pi via crontab.
 - Python 3.9+
 - [uv](https://docs.astral.sh/uv/) (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
 - An Aranet4 sensor within Bluetooth range
+- **Smart Home integrations** enabled in the [Aranet Home](https://aranet.com/aranet-home-app) phone app (device settings) — required for BLE data access
 
 All shell commands below work in both bash and fish.
 
@@ -25,34 +26,28 @@ uv sync
 
 That's it — `uv sync` creates the venv and installs dependencies from `pyproject.toml`.
 
-## 2. Find and pair your Aranet4
+## 2. Find your Aranet4 MAC address
 
-Make sure the Aranet4 is nearby and not connected to a phone. Also enable **Smart Home integrations** in the Aranet Home phone app (device settings) — this is required for BLE data access.
+Make sure the Aranet4 is nearby.
 
 ```sh
-bluetoothctl
+uv run aranetctl --scan
 ```
 
-Inside `bluetoothctl`:
+Look for your device in the output:
 
 ```
-scan on
+=======================================
+  Name:     Aranet4 0A3D9
+  Address:  AA:BB:CC:DD:EE:FF
+  RSSI:     -83 dBm
+---------------------------------------
+  CO2:            593 ppm
+  Temperature:    19.0 °C
+  ...
 ```
 
-Wait for a line like:
-
-```
-[NEW] Device AA:BB:CC:DD:EE:FF Aranet4 ABCDE
-```
-
-Note the MAC address, then pair and trust:
-
-```
-scan off
-pair AA:BB:CC:DD:EE:FF
-trust AA:BB:CC:DD:EE:FF
-exit
-```
+Note the MAC address. If no readings appear, make sure **Smart Home integrations** is enabled in the Aranet Home app.
 
 ## 3. Configure
 
@@ -83,9 +78,9 @@ uv run aranet_logger.py --single
 You should see output like:
 
 ```
-2026-02-09 12:00:00 INFO Reading from Aranet4 (AA:BB:CC:DD:EE:FF)...
-2026-02-09 12:00:00 INFO CO2=847 ppm  Temp=21.3°C  Humidity=45%  Pressure=1013.2 hPa  Battery=91%
-2026-02-09 12:00:00 INFO Reading saved to database
+2026-02-09 12:00:00 INFO Scanning for Aranet4 (AA:BB:CC:DD:EE:FF)...
+2026-02-09 12:00:10 INFO CO2=593 ppm  Temp=19.0°C  Humidity=56%  Pressure=998.2 hPa  Battery=96%
+2026-02-09 12:00:10 INFO Reading saved to database
 ```
 
 ## 5. Verify the database
@@ -264,18 +259,17 @@ sqlite3 /home/ian/dev/aranet4-dash/aranet.db "VACUUM;"
 
 ## Troubleshooting
 
-### Bluetooth connection fails
+### Device not found during scan
 
-- Make sure the Aranet4 isn't connected to a phone (it only supports one connection at a time)
+- Make sure the Aranet4 is within Bluetooth range
 - Check Bluetooth is up: `sudo systemctl status bluetooth`
 - Restart Bluetooth: `sudo systemctl restart bluetooth`
 - Make sure the MAC address in `.env` is correct
+- Try `uv run aranetctl --scan` to verify the device is visible
 
-### Readings not working
+### No readings in scan output
 
-- Make sure the device is **paired** (`bluetoothctl pair AA:BB:CC:DD:EE:FF`)
-- Make sure **Smart Home integrations** is enabled in the Aranet Home phone app
-- Enable debug logging — temporarily change `level=logging.INFO` to `level=logging.DEBUG` in `setup_logging()` and run `uv run aranet_logger.py --single`
+- **Smart Home integrations** must be enabled in the Aranet Home phone app — without it the device won't broadcast readings in BLE advertisements
 
 ### Cron job not running
 

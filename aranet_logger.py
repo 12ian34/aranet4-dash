@@ -71,9 +71,26 @@ def init_db(db_path: str) -> sqlite3.Connection:
 
 
 def read_aranet4(mac: str) -> dict | None:
-    """Read current measurements from Aranet4 using the aranet4 library."""
-    logger.info("Reading from Aranet4 (%s)...", mac)
-    current = aranet4.client.get_current_readings(mac)
+    """Read current measurements from Aranet4 via BLE advertisement scan.
+
+    Uses find_nearby() which reads from BLE advertisements — no GATT
+    connection required. More reliable than direct connect on Linux/bluez.
+    """
+    logger.info("Scanning for Aranet4 (%s)...", mac)
+
+    result = {}
+
+    def on_advertisement(ad):
+        if ad.device and ad.device.address.upper() == mac.upper() and ad.readings:
+            result["reading"] = ad.readings
+
+    aranet4.client.find_nearby(on_advertisement, duration=10)
+
+    if "reading" not in result:
+        logger.error("Aranet4 (%s) not found during scan", mac)
+        return None
+
+    current = result["reading"]
 
     reading = {
         "co2_ppm": current.co2,
