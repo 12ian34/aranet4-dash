@@ -7,17 +7,12 @@ import logging
 import os
 import signal
 import sqlite3
-import struct
 import sys
 import time
 from pathlib import Path
 
-from bleak import BleakClient, BleakScanner
+import aranet4
 from dotenv import load_dotenv
-
-# Aranet4 BLE UUIDs
-ARANET4_SERVICE_UUID = "f0cd1400-95da-4f4b-9ac8-aa55d312af0c"
-ARANET4_READ_UUID = "f0cd1503-95da-4f4b-9ac8-aa55d312af0c"
 
 # Validation ranges
 VALID_RANGES = {
@@ -34,7 +29,7 @@ logger = logging.getLogger("aranet_logger")
 def setup_logging() -> None:
     """Configure logging for systemd journal compatibility."""
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
@@ -47,7 +42,7 @@ def load_config() -> tuple[str, str, int]:
     load_dotenv(script_dir / ".env")
     mac = os.getenv("ARANET_MAC", "").strip()
     db_path = os.getenv("DB_PATH", str(script_dir / "aranet.db")).strip()
-    poll_interval = int(os.getenv("POLL_INTERVAL", "300"))
+    poll_interval = int(os.getenv("POLL_INTERVAL", "60"))
     return mac, db_path, poll_interval
 
 
@@ -75,38 +70,29 @@ def init_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def parse_reading(data: bytes) -> dict | None:
-    """Parse the 7-byte Aranet4 data packet.
+def read_aranet4(mac: str) -> dict | None:
+    """Read current measurements from Aranet4 using the aranet4 library."""
+    logger.info("Reading from Aranet4 (%s)...", mac)
+    current = aranet4.client.get_current_readings(mac)
 
-    Byte layout (from spec):
-        Byte 0-1: CO2 (uint16 LE, ppm)
-        Byte 2:   Temperature (int8, divide by 20 for °C)
-        Byte 3:   Pressure (uint8, *0.1 + 900 for hPa)
-        Byte 4:   Humidity (uint8, percent)
-        Byte 5:   Battery (uint8, percent)
-        Byte 6:   Status/interval (ignored)
-
-    NOTE: If readings look wrong, the actual Aranet4 firmware may use a
-    different layout (e.g. uint16 LE for temp/pressure across more bytes).
-    Adjust offsets here if needed after testing with your device.
-    """
-    if len(data) < 7:
-        logger.warning("Data packet too short: %d bytes (expected >=7)", len(data))
-        return None
-
-    co2 = struct.unpack_from("<H", data, 0)[0]
-    temperature = struct.unpack_from("<b", data, 2)[0] / 20.0
-    pressure = data[3] * 0.1 + 900.0
-    humidity = data[4]
-    battery = data[5]
-
-    return {
-        "co2_ppm": co2,
-        "temperature_c": round(temperature, 2),
-        "humidity_percent": humidity,
-        "pressure_hpa": round(pressure, 1),
-        "battery_percent": battery,
+    reading = {
+        "co2_ppm": current.co2,
+        "temperature_c": current.temperature,
+        "humidity_percent": current.humidity,
+        "pressure_hpa": current.pressure,
+        "battery_percent": current.battery,
     }
+
+    logger.info(
+        "CO2=%d ppm  Temp=%.1f°C  Humidity=%d%%  Pressure=%.1f hPa  Battery=%d%%",
+        reading["co2_ppm"],
+        reading["temperature_c"],
+        reading["humidity_percent"],
+        reading["pressure_hpa"],
+        reading["battery_percent"],
+    )
+
+    return reading
 
 
 def validate_reading(reading: dict) -> bool:
@@ -119,60 +105,6 @@ def validate_reading(reading: dict) -> bool:
             )
             return False
     return True
-
-
-async def find_aranet4() -> str | None:
-    """Scan for Aranet4 device and return its address."""
-    logger.info("Scanning for Aranet4 device...")
-    devices = await BleakScanner.discover(timeout=10)
-    for device in devices:
-        if device.name and "Aranet4" in device.name:
-            logger.info("Found Aranet4: %s (%s)", device.name, device.address)
-            return device.address
-    return None
-
-
-async def discover_services(mac: str) -> None:
-    """Connect to Aranet4 and list Aranet4-specific services/characteristics."""
-    async with BleakClient(mac, timeout=30) as client:
-        if not client.is_connected:
-            logger.error("Failed to connect to %s", mac)
-            return
-        logger.info("Connected to %s", mac)
-        logger.info("Discovering Aranet4 services (f0cd*)...")
-        for service in client.services:
-            if not service.uuid.startswith("f0cd"):
-                continue
-            logger.info("Service: %s (%s)", service.uuid, service.description)
-            for char in service.characteristics:
-                props = ", ".join(char.properties)
-                logger.info(
-                    "  Char: %s (%s) [%s]", char.uuid, char.description, props
-                )
-                if "read" in char.properties:
-                    try:
-                        data = await client.read_gatt_char(char)
-                        logger.info("    Value (%d bytes): %s", len(data), data.hex())
-                    except Exception as exc:
-                        logger.warning("    Read failed: %s", exc)
-
-
-async def read_aranet4(mac: str) -> dict | None:
-    """Connect to Aranet4 and read current measurements."""
-    async with BleakClient(mac, timeout=30) as client:
-        if not client.is_connected:
-            logger.error("Failed to connect to %s", mac)
-            return None
-        logger.info("Connected to %s", mac)
-        logger.info("Reading characteristic %s ...", ARANET4_READ_UUID)
-        data = await client.read_gatt_char(ARANET4_READ_UUID)
-        logger.info("Got %d bytes: %s", len(data), data.hex())
-        reading = parse_reading(data)
-        if reading:
-            logger.info("Parsed: %s", reading)
-        else:
-            logger.warning("parse_reading returned None")
-        return reading
 
 
 def insert_reading(conn: sqlite3.Connection, reading: dict) -> None:
@@ -201,43 +133,17 @@ def insert_reading(conn: sqlite3.Connection, reading: dict) -> None:
                 raise
 
 
-def log_reading(reading: dict) -> None:
-    """Log a reading at INFO level."""
-    logger.info(
-        "CO2=%d ppm  Temp=%.1f°C  Humidity=%d%%  Pressure=%.1f hPa  Battery=%d%%",
-        reading["co2_ppm"],
-        reading["temperature_c"],
-        reading["humidity_percent"],
-        reading["pressure_hpa"],
-        reading["battery_percent"],
-    )
-
-
-async def resolve_mac(mac: str) -> str:
-    """Return the configured MAC or scan for a device."""
-    if mac and mac != "XX:XX:XX:XX:XX:XX":
-        return mac
-    found = await find_aranet4()
-    if not found:
-        logger.error("No Aranet4 device found and ARANET_MAC not set")
-        sys.exit(1)
-    return found
-
-
 # ── Single-shot mode ──────────────────────────────────────────────────────────
 
 
-async def single_reading(mac: str, db_path: str) -> None:
+def single_reading(mac: str, db_path: str) -> None:
     """Take a single reading and exit (for testing)."""
-    mac = await resolve_mac(mac)
     conn = init_db(db_path)
     try:
-        reading = await read_aranet4(mac)
+        reading = read_aranet4(mac)
         if reading is None:
             logger.error("Failed to read from Aranet4")
             sys.exit(1)
-
-        log_reading(reading)
 
         if validate_reading(reading):
             insert_reading(conn, reading)
@@ -253,7 +159,6 @@ async def single_reading(mac: str, db_path: str) -> None:
 
 async def main_loop(mac: str, db_path: str, poll_interval: int) -> None:
     """Main polling loop with exponential backoff on errors."""
-    mac = await resolve_mac(mac)
     conn = init_db(db_path)
 
     backoff = 1
@@ -280,13 +185,12 @@ async def main_loop(mac: str, db_path: str, poll_interval: int) -> None:
     try:
         while not shutdown.is_set():
             try:
-                reading = await read_aranet4(mac)
+                reading = read_aranet4(mac)
                 if reading is None:
                     raise RuntimeError("Empty reading from Aranet4")
 
                 if validate_reading(reading):
                     insert_reading(conn, reading)
-                    log_reading(reading)
                     readings_since_vacuum += 1
                 else:
                     logger.warning("Reading failed validation, skipping insert")
@@ -336,18 +240,10 @@ def main() -> None:
         action="store_true",
         help="Take a single reading and exit (for testing)",
     )
-    parser.add_argument(
-        "--discover",
-        action="store_true",
-        help="Connect and list all BLE services/characteristics, then exit",
-    )
     args = parser.parse_args()
 
-    if args.discover:
-        resolved_mac = asyncio.run(resolve_mac(mac))
-        asyncio.run(discover_services(resolved_mac))
-    elif args.single:
-        asyncio.run(single_reading(mac, db_path))
+    if args.single:
+        single_reading(mac, db_path)
     else:
         asyncio.run(main_loop(mac, db_path, poll_interval))
 

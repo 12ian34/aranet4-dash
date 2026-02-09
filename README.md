@@ -25,9 +25,9 @@ uv sync
 
 That's it — `uv sync` creates the venv and installs dependencies from `pyproject.toml`.
 
-## 2. Find your Aranet4 MAC address
+## 2. Find and pair your Aranet4
 
-Make sure the Aranet4 is nearby and not connected to a phone.
+Make sure the Aranet4 is nearby and not connected to a phone. Also enable **Smart Home integrations** in the Aranet Home phone app (device settings) — this is required for BLE data access.
 
 ```sh
 bluetoothctl
@@ -45,10 +45,12 @@ Wait for a line like:
 [NEW] Device AA:BB:CC:DD:EE:FF Aranet4 ABCDE
 ```
 
-Note the MAC address, then:
+Note the MAC address, then pair and trust:
 
 ```
 scan off
+pair AA:BB:CC:DD:EE:FF
+trust AA:BB:CC:DD:EE:FF
 exit
 ```
 
@@ -81,12 +83,10 @@ uv run aranet_logger.py --single
 You should see output like:
 
 ```
-2026-02-09 12:00:00 INFO Connected to AA:BB:CC:DD:EE:FF
+2026-02-09 12:00:00 INFO Reading from Aranet4 (AA:BB:CC:DD:EE:FF)...
 2026-02-09 12:00:00 INFO CO2=847 ppm  Temp=21.3°C  Humidity=45%  Pressure=1013.2 hPa  Battery=91%
 2026-02-09 12:00:00 INFO Reading saved to database
 ```
-
-If the values look wrong (especially temperature or pressure), see [Troubleshooting](#troubleshooting) below.
 
 ## 5. Verify the database
 
@@ -271,13 +271,11 @@ sqlite3 /home/ian/dev/aranet4-dash/aranet.db "VACUUM;"
 - Restart Bluetooth: `sudo systemctl restart bluetooth`
 - Make sure the MAC address in `.env` is correct
 
-### Temperature or pressure readings look wrong
+### Readings not working
 
-The data parsing in `aranet_logger.py` follows a specific 7-byte packet layout. Some Aranet4 firmware versions use a different format (e.g. uint16 LE for temperature and pressure across more bytes). To debug:
-
-1. Enable debug logging — temporarily change `level=logging.INFO` to `level=logging.DEBUG` in `setup_logging()`
-2. Run `uv run aranet_logger.py --single` and check the "Raw data" hex output
-3. Adjust `parse_reading()` in `aranet_logger.py` if needed
+- Make sure the device is **paired** (`bluetoothctl pair AA:BB:CC:DD:EE:FF`)
+- Make sure **Smart Home integrations** is enabled in the Aranet Home phone app
+- Enable debug logging — temporarily change `level=logging.INFO` to `level=logging.DEBUG` in `setup_logging()` and run `uv run aranet_logger.py --single`
 
 ### Cron job not running
 
