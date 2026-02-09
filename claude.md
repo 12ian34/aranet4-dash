@@ -45,7 +45,7 @@ Table `aranet_readings` in SQLite:
 
 ## Config (.env)
 - `ARANET_MAC` - Bluetooth MAC of Aranet4 ("Smart Home integrations" must be enabled in Aranet Home app)
-- `DB_PATH` - Path to SQLite database file (default: `aranet.db` next to script)
+- `DB_PATH` - Path to SQLite database file (default: `/var/lib/aranet4-dash/aranet.db`, shared with Grafana via `grafana` group)
 - `POLL_INTERVAL` - Seconds between readings in daemon mode (default 60, not used by crontab)
 
 ## Current status

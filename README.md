@@ -49,7 +49,17 @@ Look for your device in the output:
 
 Note the MAC address. If no readings appear, make sure **Smart Home integrations** is enabled in the Aranet Home app.
 
-## 3. Configure
+## 3. Create the database directory
+
+```sh
+sudo mkdir -p /var/lib/aranet4-dash
+sudo chown ian:grafana /var/lib/aranet4-dash
+chmod 750 /var/lib/aranet4-dash
+```
+
+This keeps the DB outside your home directory so Grafana (`grafana` user) can read it via group permissions without exposing anything else.
+
+## 4. Configure
 
 Copy the example and fill in your values:
 
@@ -60,15 +70,15 @@ nano .env
 
 ```env
 ARANET_MAC=AA:BB:CC:DD:EE:FF
-DB_PATH=/home/ian/dev/aranet4-dash/aranet.db
+DB_PATH=/var/lib/aranet4-dash/aranet.db
 POLL_INTERVAL=60
 ```
 
 - `ARANET_MAC` — the MAC address from step 2
-- `DB_PATH` — where to store the SQLite database (directory will be created if needed)
+- `DB_PATH` — where to store the SQLite database
 - `POLL_INTERVAL` — seconds between readings in daemon mode (default 60, not used by crontab)
 
-## 4. Test a single reading
+## 5. Test a single reading
 
 ```sh
 cd /home/ian/dev/aranet4-dash
@@ -83,10 +93,10 @@ You should see output like:
 2026-02-09 12:00:10 INFO Reading saved to database
 ```
 
-## 5. Verify the database
+## 6. Verify the database
 
 ```sh
-sqlite3 /home/ian/dev/aranet4-dash/aranet.db
+sqlite3 /var/lib/aranet4-dash/aranet.db
 ```
 
 ```sql
@@ -94,7 +104,7 @@ SELECT * FROM aranet_readings ORDER BY timestamp DESC LIMIT 5;
 .quit
 ```
 
-## 6. Set up crontab
+## 7. Set up crontab
 
 Cron always uses `/bin/sh`, so fish vs bash doesn't matter here.
 
@@ -122,7 +132,7 @@ Check it's working after a few minutes:
 tail -f /home/ian/dev/aranet4-dash/cron.log
 ```
 
-## 7. Install Grafana
+## 8. Install Grafana
 
 ```sh
 sudo apt-get install -y apt-transport-https software-properties-common
@@ -142,25 +152,25 @@ sudo systemctl enable --now grafana-server
 
 Grafana is now running at `http://<pi-ip>:3000`. Default login is `admin` / `admin`.
 
-## 8. Install the SQLite datasource plugin
+## 9. Install the SQLite datasource plugin
 
 ```sh
 sudo grafana-cli plugins install frser-sqlite-datasource
 sudo systemctl restart grafana-server
 ```
 
-## 9. Configure the datasource
+## 10. Configure the datasource
 
 1. Open Grafana at `http://<pi-ip>:3000`
 2. Go to **Connections > Data sources > Add data source**
 3. Search for **SQLite**
 4. Set the path to:
    ```
-   /home/ian/dev/aranet4-dash/aranet.db
+   /var/lib/aranet4-dash/aranet.db
    ```
 5. Click **Save & test** — should say "Data source is working"
 
-## 10. Create a dashboard
+## 11. Create a dashboard
 
 Create a new dashboard and add panels. Here are some example queries:
 
@@ -247,14 +257,14 @@ The database grows at roughly 1 row per reading (~100 bytes). At 1-minute interv
 To manually compact:
 
 ```sh
-sqlite3 /home/ian/dev/aranet4-dash/aranet.db "VACUUM;"
+sqlite3 /var/lib/aranet4-dash/aranet.db "VACUUM;"
 ```
 
 To delete old data (e.g. older than 1 year):
 
 ```sh
-sqlite3 /home/ian/dev/aranet4-dash/aranet.db "DELETE FROM aranet_readings WHERE timestamp < datetime('now', '-1 year');"
-sqlite3 /home/ian/dev/aranet4-dash/aranet.db "VACUUM;"
+sqlite3 /var/lib/aranet4-dash/aranet.db "DELETE FROM aranet_readings WHERE timestamp < datetime('now', '-1 year');"
+sqlite3 /var/lib/aranet4-dash/aranet.db "VACUUM;"
 ```
 
 ## Troubleshooting
@@ -286,14 +296,18 @@ which uv
 
 ### Grafana can't read the database
 
-The Grafana process (`grafana` user) needs read access to the `.db` file:
+The DB lives in `/var/lib/aranet4-dash/` which is owned by `ian:grafana`. Check permissions:
 
 ```sh
-chmod 644 /home/ian/dev/aranet4-dash/aranet.db
+ls -la /var/lib/aranet4-dash/
+# Should show: drwxr-x--- ian grafana  (directory)
+# and:        -rw-r----- ian grafana  (aranet.db)
 ```
 
-If writes are also blocked, check the directory permissions too:
+Fix if needed:
 
 ```sh
-chmod 755 /home/ian/dev/aranet4-dash
+sudo chown ian:grafana /var/lib/aranet4-dash /var/lib/aranet4-dash/aranet.db
+chmod 750 /var/lib/aranet4-dash
+chmod 640 /var/lib/aranet4-dash/aranet.db
 ```
