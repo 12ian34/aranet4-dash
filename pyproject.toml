@@ -1,0 +1,9 @@
+[project]
+name = "aranet4-dash"
+version = "0.1.0"
+description = "Aranet4 Bluetooth data logger with SQLite storage"
+requires-python = ">=3.9"
+dependencies = [
+    "bleak>=0.21.0",
+    "python-dotenv>=1.0.0",
+]

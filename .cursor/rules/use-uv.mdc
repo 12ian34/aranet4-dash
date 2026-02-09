@@ -1,0 +1,12 @@
+---
+description: Always use uv for Python package management and script execution
+alwaysApply: true
+---
+
+# Python: always use uv
+
+- Use `uv` for all Python operations — never raw `pip`, `pip install`, `python -m venv`, or `virtualenv`.
+- Dependencies go in `pyproject.toml`, not `requirements.txt`.
+- `uv sync` to install/update deps. `uv add <pkg>` to add a new dependency.
+- `uv run script.py` to execute scripts (handles venv automatically).
+- In crontab/systemd, use full path to uv (e.g. `/home/ian/.local/bin/uv run`).
