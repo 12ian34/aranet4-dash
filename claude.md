@@ -44,7 +44,8 @@ Table `aranet_readings` in SQLite:
 - **BLE advertisement scan**: Uses `aranet4.client.find_nearby()` to read from BLE advertisements. No GATT connection needed — more reliable on Linux/bluez than direct connect (which hangs on this device). Requires "Smart Home integrations" enabled in the Aranet Home app.
 - **Validation**: Strict ranges (CO2 400-5000, temp -10-50C, humidity 0-100%, pressure 900-1100 hPa, battery 0-100%). Readings outside range are logged and skipped.
 - **Grafana SQLite plugin**: Reads the `.db` file directly — no intermediate server needed.
-- **Dashboard JSON**: `grafana/dashboard.json` is the exported working dashboard. Import via Dashboards > Import in Grafana. Time series queries use `CAST(strftime('%s', timestamp) AS INTEGER)` because the SQLite plugin needs Unix epoch numbers, not datetime strings.
+- **Dashboard JSON**: `grafana/dashboard.json` is the exported working dashboard. Import via Dashboards > Import in Grafana.
+- **Timestamps in Grafana**: The `timestamp` column stores datetime strings (e.g. `2026-02-09 01:21:11`). The SQLite plugin needs Unix epoch numbers for time series, so queries use `CAST(strftime('%s', timestamp) AS INTEGER)` (returns seconds). For display values like "Last Updated" in stat/bar panels, Grafana expects **milliseconds** epoch, so those use `* 1000`.
 
 ## Config (.env)
 - `ARANET_MAC` - Bluetooth MAC of Aranet4 ("Smart Home integrations" must be enabled in Aranet Home app)
