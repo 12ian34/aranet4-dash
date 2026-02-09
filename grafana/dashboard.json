@@ -50,18 +50,39 @@
               "options": "co2_ppm"
             },
             "properties": [
-              { "id": "displayName", "value": "CO2" },
-              { "id": "unit", "value": "ppm" },
-              { "id": "min", "value": 400 },
-              { "id": "max", "value": 2000 },
+              {
+                "id": "displayName",
+                "value": "CO2"
+              },
+              {
+                "id": "unit",
+                "value": "ppm"
+              },
+              {
+                "id": "min",
+                "value": 400
+              },
+              {
+                "id": "max",
+                "value": 2000
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "green", "value": 0 },
-                    { "color": "yellow", "value": 800 },
-                    { "color": "red", "value": 1000 }
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 800
+                    },
+                    {
+                      "color": "red",
+                      "value": 1000
+                    }
                   ]
                 }
               }
@@ -73,20 +94,47 @@
               "options": "temperature_c"
             },
             "properties": [
-              { "id": "displayName", "value": "Temperature" },
-              { "id": "unit", "value": "celsius" },
-              { "id": "min", "value": 10 },
-              { "id": "max", "value": 35 },
+              {
+                "id": "displayName",
+                "value": "Temperature"
+              },
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "min",
+                "value": 10
+              },
+              {
+                "id": "max",
+                "value": 35
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "red", "value": 0 },
-                    { "color": "yellow", "value": 15 },
-                    { "color": "green", "value": 18 },
-                    { "color": "yellow", "value": 24 },
-                    { "color": "red", "value": 28 }
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 15
+                    },
+                    {
+                      "color": "green",
+                      "value": 18
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 24
+                    },
+                    {
+                      "color": "red",
+                      "value": 28
+                    }
                   ]
                 }
               }
@@ -98,20 +146,47 @@
               "options": "humidity_percent"
             },
             "properties": [
-              { "id": "displayName", "value": "Humidity" },
-              { "id": "unit", "value": "percent" },
-              { "id": "min", "value": 0 },
-              { "id": "max", "value": 100 },
+              {
+                "id": "displayName",
+                "value": "Humidity"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "red", "value": 0 },
-                    { "color": "yellow", "value": 20 },
-                    { "color": "green", "value": 30 },
-                    { "color": "yellow", "value": 60 },
-                    { "color": "red", "value": 80 }
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 20
+                    },
+                    {
+                      "color": "green",
+                      "value": 30
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 60
+                    },
+                    {
+                      "color": "red",
+                      "value": 80
+                    }
                   ]
                 }
               }
@@ -123,16 +198,31 @@
               "options": "pressure_hpa"
             },
             "properties": [
-              { "id": "displayName", "value": "Pressure" },
-              { "id": "unit", "value": "pressurehpa" },
-              { "id": "min", "value": 950 },
-              { "id": "max", "value": 1050 },
+              {
+                "id": "displayName",
+                "value": "Pressure"
+              },
+              {
+                "id": "unit",
+                "value": "pressurehpa"
+              },
+              {
+                "id": "min",
+                "value": 950
+              },
+              {
+                "id": "max",
+                "value": 1050
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "blue", "value": 0 }
+                    {
+                      "color": "blue",
+                      "value": 0
+                    }
                   ]
                 }
               }
@@ -144,18 +234,39 @@
               "options": "battery_percent"
             },
             "properties": [
-              { "id": "displayName", "value": "Battery" },
-              { "id": "unit", "value": "percent" },
-              { "id": "min", "value": 0 },
-              { "id": "max", "value": 100 },
+              {
+                "id": "displayName",
+                "value": "Battery"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 100
+              },
               {
                 "id": "thresholds",
                 "value": {
                   "mode": "absolute",
                   "steps": [
-                    { "color": "red", "value": 0 },
-                    { "color": "yellow", "value": 20 },
-                    { "color": "green", "value": 50 }
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": 20
+                    },
+                    {
+                      "color": "green",
+                      "value": 50
+                    }
                   ]
                 }
               }
@@ -165,7 +276,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 10,
+        "w": 14,
         "x": 0,
         "y": 0
       },
@@ -184,7 +295,9 @@
         "namePlacement": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -199,7 +312,10 @@
           "queryType": "table",
           "rawQueryText": "SELECT co2_ppm, temperature_c, humidity_percent, pressure_hpa, battery_percent\nFROM aranet_readings\nORDER BY timestamp DESC\nLIMIT 1\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Latest Reading",
@@ -255,9 +371,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": 0 },
-              { "color": "yellow", "value": 800 },
-              { "color": "red", "value": 1000 }
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 800
+              },
+              {
+                "color": "red",
+                "value": 1000
+              }
             ]
           },
           "unit": "ppm"
@@ -265,8 +390,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 10,
+        "w": 7,
         "x": 0,
         "y": 5
       },
@@ -290,7 +415,10 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  co2_ppm\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "CO2",
@@ -348,7 +476,10 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": 0 }
+              {
+                "color": "green",
+                "value": 0
+              }
             ]
           },
           "unit": "celsius"
@@ -356,9 +487,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
+        "h": 10,
+        "w": 7,
+        "x": 7,
         "y": 5
       },
       "id": 6,
@@ -381,100 +512,13 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  temperature_c\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Temperature",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "frser-sqlite-datasource",
-        "uid": "bfco9zy6et43kd"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "fixedColor": "blue",
-            "mode": "fixed"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 4,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "showValues": false,
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "green", "value": 0 }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 13
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.3.2",
-      "targets": [
-        {
-          "queryType": "time series",
-          "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  humidity_percent\nFROM aranet_readings\nORDER BY timestamp\n",
-          "refId": "A",
-          "timeColumns": ["time", "ts"]
-        }
-      ],
-      "title": "Humidity",
       "type": "timeseries"
     },
     {
@@ -529,7 +573,10 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": 0 }
+              {
+                "color": "green",
+                "value": 0
+              }
             ]
           },
           "unit": "pressurehpa"
@@ -537,10 +584,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 13
+        "h": 10,
+        "w": 7,
+        "x": 0,
+        "y": 15
       },
       "id": 4,
       "options": {
@@ -562,16 +609,117 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  pressure_hpa\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Pressure",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "bfco9zy6et43kd"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 7,
+        "y": 15
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.3.2",
+      "targets": [
+        {
+          "queryType": "time series",
+          "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  humidity_percent\nFROM aranet_readings\nORDER BY timestamp\n",
+          "refId": "A",
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
+        }
+      ],
+      "title": "Humidity",
       "type": "timeseries"
     }
   ],
   "preload": false,
   "schemaVersion": 42,
-  "tags": ["aranet4"],
+  "tags": [
+    "aranet4"
+  ],
   "templating": {
     "list": []
   },
@@ -581,7 +729,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "aranet4",
-  "uid": "adbm7sw",
-  "version": 7
+  "title": "aranet4-dash",
+  "uid": "aranet4-dash",
+  "version": 2
 }
