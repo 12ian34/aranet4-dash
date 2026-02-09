@@ -170,69 +170,25 @@ sudo systemctl restart grafana-server
    ```
 5. Click **Save & test** — should say "Data source is working"
 
-## 11. Create a dashboard
+## 11. Import the dashboard
 
-Create a new dashboard and add panels. Here are some example queries:
+A pre-built dashboard is included in the repo with stat panels and time series charts, all with sensible units, thresholds, and ranges.
 
-**CO2 over time:**
+1. In Grafana, go to **Dashboards > New > Import**
+2. Click **Upload JSON file** and select `grafana/dashboard.json` from the repo
+3. Select your SQLite datasource when prompted
+4. Click **Import**
 
-```sql
-SELECT
-  timestamp AS time,
-  co2_ppm
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
+The dashboard includes:
 
-**Temperature over time:**
-
-```sql
-SELECT
-  timestamp AS time,
-  temperature_c
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Humidity over time:**
-
-```sql
-SELECT
-  timestamp AS time,
-  humidity_percent
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Pressure over time:**
-
-```sql
-SELECT
-  timestamp AS time,
-  pressure_hpa
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Latest reading (stat panel):**
-
-```sql
-SELECT co2_ppm, temperature_c, humidity_percent, pressure_hpa, battery_percent
-FROM aranet_readings
-ORDER BY timestamp DESC
-LIMIT 1
-```
-
-**Tips:**
-- Set each panel's time column to `time` in the query options
-- Use "Time series" visualisation for the line charts
-- Use "Stat" visualisation for the latest reading
-- Set thresholds on CO2: green < 800, yellow < 1000, red >= 1000
-- Set the dashboard auto-refresh to 1m to match the polling interval
+- **Top row** — stat panels for CO2, Temperature, Humidity, Pressure, Battery with colour-coded thresholds:
+  - CO2: green < 800, yellow 800-1000, red >= 1000 ppm
+  - Temperature: green 18-24, yellow outside, red < 15 or > 28 C
+  - Humidity: green 30-60, yellow outside, red < 20 or > 80%
+  - Pressure: informational (no thresholds)
+  - Battery: green > 50, yellow 20-50, red < 20%
+- **Bottom section** — 24h time series for CO2 (with threshold bands), temperature, humidity, pressure
+- Auto-refresh every 1 minute
 
 ## Database schema
 
