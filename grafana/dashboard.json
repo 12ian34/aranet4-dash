@@ -764,9 +764,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 20 },
-              { "color": "green", "value": 50 }
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "green",
+                "value": 50
+              }
             ]
           },
           "unit": "percent"
@@ -774,7 +783,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 10,
+        "h": 6,
         "w": 14,
         "x": 0,
         "y": 25
@@ -796,10 +805,14 @@
       "pluginVersion": "12.3.2",
       "targets": [
         {
+          "queryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  battery_percent\nFROM aranet_readings\nORDER BY timestamp\n",
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  battery_percent\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Battery",
@@ -822,5 +835,5 @@
   "timezone": "browser",
   "title": "aranet4-dash",
   "uid": "aranet4-dash",
-  "version": 2
+  "version": 5
 }
