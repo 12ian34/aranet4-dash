@@ -170,69 +170,23 @@ sudo systemctl restart grafana-server
    ```
 5. Click **Save & test** — should say "Data source is working"
 
-## 11. Create a dashboard
+## 11. Import the dashboard
 
-Create a new dashboard and add panels. Here are some example queries:
+A pre-built dashboard JSON is included in the repo at `grafana/dashboard.json`.
 
-**CO2 over time:**
+1. In Grafana, go to **Dashboards > New > Import**
+2. Click **Upload JSON file** and select `grafana/dashboard.json` from the repo
+3. Click **Import**
 
-```sql
-SELECT
-  timestamp AS time,
-  co2_ppm
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
+The dashboard includes:
 
-**Temperature over time:**
+- **Bar gauge** — latest reading for CO2, Temperature, Humidity, Pressure, Battery with colour-coded thresholds
+- **CO2 time series** — with green/yellow/red threshold bands at 800/1000 ppm
+- **Temperature time series** — orange line, 10-35 C range
+- **Humidity time series** — blue line, 0-100% range
+- **Pressure time series** — purple line, 950-1050 hPa range
 
-```sql
-SELECT
-  timestamp AS time,
-  temperature_c
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Humidity over time:**
-
-```sql
-SELECT
-  timestamp AS time,
-  humidity_percent
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Pressure over time:**
-
-```sql
-SELECT
-  timestamp AS time,
-  pressure_hpa
-FROM aranet_readings
-WHERE timestamp >= datetime('now', '-24 hours')
-ORDER BY timestamp
-```
-
-**Latest reading (stat panel):**
-
-```sql
-SELECT co2_ppm, temperature_c, humidity_percent, pressure_hpa, battery_percent
-FROM aranet_readings
-ORDER BY timestamp DESC
-LIMIT 1
-```
-
-**Tips:**
-- Set each panel's time column to `time` in the query options
-- Use "Time series" visualisation for the line charts
-- Use "Stat" visualisation for the latest reading
-- Set thresholds on CO2: green < 800, yellow < 1000, red >= 1000
-- Set the dashboard auto-refresh to 1m to match the polling interval
+> **Note:** The time series queries use `CAST(strftime('%s', timestamp) AS INTEGER)` to convert timestamps to Unix epoch — the SQLite plugin requires numeric timestamps for time series charts.
 
 ## Database schema
 
