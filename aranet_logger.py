@@ -34,7 +34,7 @@ logger = logging.getLogger("aranet_logger")
 def setup_logging() -> None:
     """Configure logging for systemd journal compatibility."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(asctime)s %(levelname)s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
         stream=sys.stdout,
@@ -132,6 +132,29 @@ async def find_aranet4() -> str | None:
     return None
 
 
+async def discover_services(mac: str) -> None:
+    """Connect to Aranet4 and list all services/characteristics."""
+    async with BleakClient(mac, timeout=30) as client:
+        if not client.is_connected:
+            logger.error("Failed to connect to %s", mac)
+            return
+        logger.info("Connected to %s", mac)
+        logger.info("Discovering services...")
+        for service in client.services:
+            logger.info("Service: %s (%s)", service.uuid, service.description)
+            for char in service.characteristics:
+                props = ", ".join(char.properties)
+                logger.info(
+                    "  Char: %s (%s) [%s]", char.uuid, char.description, props
+                )
+                if "read" in char.properties:
+                    try:
+                        data = await client.read_gatt_char(char)
+                        logger.info("    Value (%d bytes): %s", len(data), data.hex())
+                    except Exception as exc:
+                        logger.warning("    Read failed: %s", exc)
+
+
 async def read_aranet4(mac: str) -> dict | None:
     """Connect to Aranet4 and read current measurements."""
     async with BleakClient(mac, timeout=30) as client:
@@ -139,9 +162,15 @@ async def read_aranet4(mac: str) -> dict | None:
             logger.error("Failed to connect to %s", mac)
             return None
         logger.info("Connected to %s", mac)
+        logger.info("Reading characteristic %s ...", ARANET4_READ_UUID)
         data = await client.read_gatt_char(ARANET4_READ_UUID)
-        logger.debug("Raw data (%d bytes): %s", len(data), data.hex())
-        return parse_reading(data)
+        logger.info("Got %d bytes: %s", len(data), data.hex())
+        reading = parse_reading(data)
+        if reading:
+            logger.info("Parsed: %s", reading)
+        else:
+            logger.warning("parse_reading returned None")
+        return reading
 
 
 def insert_reading(conn: sqlite3.Connection, reading: dict) -> None:
@@ -305,9 +334,17 @@ def main() -> None:
         action="store_true",
         help="Take a single reading and exit (for testing)",
     )
+    parser.add_argument(
+        "--discover",
+        action="store_true",
+        help="Connect and list all BLE services/characteristics, then exit",
+    )
     args = parser.parse_args()
 
-    if args.single:
+    if args.discover:
+        resolved_mac = asyncio.run(resolve_mac(mac))
+        asyncio.run(discover_services(resolved_mac))
+    elif args.single:
         asyncio.run(single_reading(mac, db_path))
     else:
         asyncio.run(main_loop(mac, db_path, poll_interval))
