@@ -230,7 +230,7 @@
       "targets": [
         {
           "queryType": "time series",
-          "rawQueryText": "SELECT timestamp AS time, co2_ppm FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
+          "rawQueryText": "SELECT strftime('%s', timestamp) AS time, co2_ppm FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
           "refId": "A",
           "timeColumns": ["time"]
         }
@@ -278,7 +278,7 @@
       "targets": [
         {
           "queryType": "time series",
-          "rawQueryText": "SELECT timestamp AS time, temperature_c FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
+          "rawQueryText": "SELECT strftime('%s', timestamp) AS time, temperature_c FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
           "refId": "A",
           "timeColumns": ["time"]
         }
@@ -322,7 +322,7 @@
       "targets": [
         {
           "queryType": "time series",
-          "rawQueryText": "SELECT timestamp AS time, humidity_percent FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
+          "rawQueryText": "SELECT strftime('%s', timestamp) AS time, humidity_percent FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
           "refId": "A",
           "timeColumns": ["time"]
         }
@@ -365,7 +365,7 @@
       "targets": [
         {
           "queryType": "time series",
-          "rawQueryText": "SELECT timestamp AS time, pressure_hpa FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
+          "rawQueryText": "SELECT strftime('%s', timestamp) AS time, pressure_hpa FROM aranet_readings WHERE timestamp >= datetime('now', '-24 hours') ORDER BY timestamp",
           "refId": "A",
           "timeColumns": ["time"]
         }
