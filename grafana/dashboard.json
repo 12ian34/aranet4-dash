@@ -20,6 +20,7 @@
   "graphTooltip": 0,
   "id": 0,
   "links": [],
+  "liveNow": true,
   "panels": [
     {
       "datasource": {
@@ -323,7 +324,9 @@
         "namePlacement": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -338,7 +341,10 @@
           "queryType": "table",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) * 1000 AS last_updated,\n  pressure_hpa, battery_percent, temperature_c, humidity_percent, co2_ppm\nFROM aranet_readings\nORDER BY timestamp DESC\nLIMIT 1\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Latest Reading",
@@ -439,7 +445,10 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  co2_ppm\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "CO2",
@@ -549,7 +558,10 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  temperature_c\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Temperature",
@@ -643,7 +655,10 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  pressure_hpa\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Pressure",
@@ -752,7 +767,10 @@
           "queryType": "time series",
           "rawQueryText": "SELECT\n  CAST(strftime('%s', timestamp) AS INTEGER) AS time,\n  humidity_percent\nFROM aranet_readings\nORDER BY timestamp\n",
           "refId": "A",
-          "timeColumns": ["time", "ts"]
+          "timeColumns": [
+            "time",
+            "ts"
+          ]
         }
       ],
       "title": "Humidity",
@@ -761,7 +779,9 @@
   ],
   "preload": false,
   "schemaVersion": 42,
-  "tags": ["aranet4"],
+  "tags": [
+    "aranet4"
+  ],
   "templating": {
     "list": []
   },
@@ -773,5 +793,5 @@
   "timezone": "browser",
   "title": "aranet4-dash",
   "uid": "aranet4-dash",
-  "version": 18
+  "version": 21
 }
