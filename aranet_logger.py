@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import fcntl
 import logging
 import os
 import signal
@@ -153,22 +154,36 @@ def insert_reading(conn: sqlite3.Connection, reading: dict) -> None:
 # ── Single-shot mode ──────────────────────────────────────────────────────────
 
 
-def single_reading(mac: str, db_path: str) -> None:
-    """Take a single reading and exit (for testing)."""
-    conn = init_db(db_path)
-    try:
-        reading = read_aranet4(mac)
-        if reading is None:
-            logger.error("Failed to read from Aranet4")
-            sys.exit(1)
+LOCK_PATH = Path("/tmp/aranet4-dash.lock")
 
-        if validate_reading(reading):
-            insert_reading(conn, reading)
-            logger.info("Reading saved to database")
-        else:
-            logger.warning("Reading failed validation, not saved")
+
+def single_reading(mac: str, db_path: str) -> None:
+    """Take a single reading and exit. Uses a file lock to prevent overlapping runs."""
+    lock_file = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        logger.warning("Another instance is already running, skipping")
+        sys.exit(0)
+
+    try:
+        conn = init_db(db_path)
+        try:
+            reading = read_aranet4(mac)
+            if reading is None:
+                logger.error("Failed to read from Aranet4")
+                sys.exit(1)
+
+            if validate_reading(reading):
+                insert_reading(conn, reading)
+                logger.info("Reading saved to database")
+            else:
+                logger.warning("Reading failed validation, not saved")
+        finally:
+            conn.close()
     finally:
-        conn.close()
+        fcntl.flock(lock_file, fcntl.LOCK_UN)
+        lock_file.close()
 
 
 # ── Main polling loop ─────────────────────────────────────────────────────────

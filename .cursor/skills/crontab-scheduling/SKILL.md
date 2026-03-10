@@ -37,6 +37,19 @@ tail -f ~/dev/aranet4-dash/cron.log
 cd ~/dev/aranet4-dash && uv run aranet_logger.py --single
 ```
 
+## Concurrency protection
+
+Cron does **not** wait for the previous invocation to finish. If a run takes longer than 1 minute (e.g. BLE scan hangs, D-Bus stalls), the next cron invocation starts in parallel. This cascades:
+
+1. Stuck process holds the BLE adapter via D-Bus
+2. Next invocation can't scan — also gets stuck
+3. Processes pile up every minute, all holding D-Bus connections
+4. Eventually dozens of zombie processes permanently block BLE scanning
+
+**Fix**: `aranet_logger.py` uses `fcntl.flock()` in `single_reading()` with `LOCK_NB` (non-blocking). If another instance is already running, it logs a warning and exits immediately with code 0. The lock file is `/tmp/aranet4-dash.lock`.
+
+**Diagnosing pile-ups**: `ps aux | grep aranet_logger` — if you see multiple processes with old start dates, kill them all with `pkill -f 'aranet_logger.py --single'` and restart the Bluetooth stack with `sudo systemctl restart bluetooth`.
+
 ## Timing
 
 - `* * * * *` = every minute.

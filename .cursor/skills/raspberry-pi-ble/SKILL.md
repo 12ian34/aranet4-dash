@@ -37,6 +37,10 @@ The `grafana` user reads via group permission. The `-journal` and `-wal` files (
 - Cron uses `/bin/sh` regardless of user shell.
 - `$HOME`, `$USER`, `~` all work in both bash and fish.
 
+## Deploying changes to the Pi
+
+- **Never use `scp`** to push files to the Pi. Commit and push from the local machine, then `git pull` on the Pi.
+
 ## Common issues
 
 - **BLE scan returns nothing**: check "Smart Home integrations" is enabled in Aranet Home app.
