@@ -8,6 +8,7 @@ import logging
 import os
 import signal
 import sqlite3
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -71,14 +72,27 @@ def init_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
-def read_aranet4(mac: str) -> dict | None:
-    """Read current measurements from Aranet4 via BLE advertisement scan.
+def reset_bluetooth_adapter() -> None:
+    """Reset the Bluetooth adapter to clear stuck scan state in bluez.
 
-    Uses find_nearby() which reads from BLE advertisements — no GATT
-    connection required. More reliable than direct connect on Linux/bluez.
+    Uses systemctl to restart the bluetooth service, which clears any
+    stuck scan state in bluez. Requires a sudoers rule (no password):
+        ian ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bluetooth
     """
-    logger.info("Scanning for Aranet4 (%s)...", mac)
+    logger.warning("Resetting Bluetooth adapter to clear stuck scan...")
+    try:
+        subprocess.run(
+            ["sudo", "-n", "systemctl", "restart", "bluetooth"],
+            check=True, timeout=15, capture_output=True,
+        )
+        time.sleep(3)  # give bluez time to reinitialize
+        logger.info("Bluetooth adapter reset complete")
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        logger.error("Failed to reset Bluetooth adapter: %s", exc)
 
+
+def _scan_aranet4(mac: str) -> dict | None:
+    """Perform a single BLE advertisement scan for the Aranet4 device."""
     result = {}
 
     def on_advertisement(ad):
@@ -88,10 +102,33 @@ def read_aranet4(mac: str) -> dict | None:
     aranet4.client.find_nearby(on_advertisement, duration=10)
 
     if "reading" not in result:
+        return None
+    return result["reading"]
+
+
+def read_aranet4(mac: str) -> dict | None:
+    """Read current measurements from Aranet4 via BLE advertisement scan.
+
+    Uses find_nearby() which reads from BLE advertisements — no GATT
+    connection required. More reliable than direct connect on Linux/bluez.
+    If bluez has a stuck scan from a previous crashed process, resets the
+    adapter and retries once.
+    """
+    logger.info("Scanning for Aranet4 (%s)...", mac)
+
+    try:
+        current = _scan_aranet4(mac)
+    except Exception as exc:
+        if "InProgress" in str(exc):
+            reset_bluetooth_adapter()
+            logger.info("Retrying scan after adapter reset...")
+            current = _scan_aranet4(mac)
+        else:
+            raise
+
+    if current is None:
         logger.error("Aranet4 (%s) not found during scan", mac)
         return None
-
-    current = result["reading"]
 
     reading = {
         "co2_ppm": current.co2,
