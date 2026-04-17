@@ -129,17 +129,28 @@ def read_aranet4(mac: str) -> dict | None:
     except BleakDBusError as exc:
         if getattr(exc, "dbus_error", "") == "org.bluez.Error.InProgress":
             reset_bluetooth_adapter()
+            logger.info(
+                "Exiting this process without rescanning here (Bleak stays safer "
+                "after a bluetooth restart when the next run is a new interpreter). "
+                "Run --single again, or wait for cron."
+            )
             raise BluezScanConflictError(
-                "BLE InProgress — bluetooth was restarted; exit this process so the "
-                "next cron run uses a clean Bleak client. If this repeats: "
-                "pkill -f 'aranet_logger.py --single' and stagger other BLE crons."
+                "First scan: org.bluez.Error.InProgress (another LE scan or stuck "
+                "bluez). Bluetooth was restarted above, then this run ends. "
+                "Run `uv run aranet_logger.py --single` once more. If the next run "
+                "still opens with InProgress, stop other BLE jobs on the Pi "
+                "(e.g. pkill -f airlab_collector), then sudo systemctl restart bluetooth."
             ) from exc
         raise
     except Exception as exc:
         if "InProgress" in str(exc) or "org.bluez.Error.InProgress" in str(exc):
             reset_bluetooth_adapter()
+            logger.info(
+                "Exiting without rescan in-process; run --single again or wait for cron."
+            )
             raise BluezScanConflictError(
-                "BLE InProgress (wrapped error) — same recovery as BleakDBusError."
+                "First scan: InProgress (wrapped error). Bluetooth was restarted; "
+                "exit and retry like BleakDBusError InProgress."
             ) from exc
         raise
 
