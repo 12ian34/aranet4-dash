@@ -31,7 +31,7 @@ logger = logging.getLogger("aranet_logger")
 
 
 class BluezScanConflictError(Exception):
-    """BlueZ scan InProgress after adapter restart — need a fresh OS process to scan."""
+    """BlueZ scan still InProgress after StopDiscovery, bluetooth restart, and retries."""
 
 
 def setup_logging() -> None:
@@ -97,6 +97,45 @@ def reset_bluetooth_adapter() -> None:
         logger.error("Failed to reset Bluetooth adapter: %s", exc)
 
 
+def _clear_bluez_le_discovery() -> None:
+    """Ask BlueZ to end any active LE discovery (fixes ghost ``InProgress`` state).
+
+    ``org.bluez.Error.InProgress`` on ``StartDiscovery`` often means discovery was
+    left running by a crashed client or another tool — ``systemctl restart bluetooth``
+    alone does not always clear it before our process runs again. Optional env:
+    ``BLUEZ_ADAPTER_DBUS_PATH`` (default ``/org/bluez/hci0``).
+    """
+    hci = os.environ.get("BLUEZ_ADAPTER_DBUS_PATH", "/org/bluez/hci0")
+    for args in (
+        [
+            "dbus-send",
+            "--system",
+            "--type=method_call",
+            "--dest=org.bluez",
+            hci,
+            "org.bluez.Adapter1.StopDiscovery",
+        ],
+        ["bluetoothctl", "--timeout", "3", "scan", "off"],
+    ):
+        try:
+            subprocess.run(
+                args,
+                capture_output=True,
+                text=True,
+                timeout=6,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
+def _is_bluez_in_progress(exc: BaseException) -> bool:
+    if isinstance(exc, BleakDBusError):
+        return getattr(exc, "dbus_error", "") == "org.bluez.Error.InProgress"
+    text = str(exc)
+    return "InProgress" in text or "org.bluez.Error.InProgress" in text
+
+
 def _scan_aranet4(mac: str) -> dict | None:
     """Perform a single BLE advertisement scan for the Aranet4 device."""
     result = {}
@@ -117,43 +156,46 @@ def read_aranet4(mac: str) -> dict | None:
 
     Uses find_nearby() which reads from BLE advertisements — no GATT
     connection required. More reliable than direct connect on Linux/bluez.
-    If bluez reports ``InProgress``, restarts the bluetooth service (see
-    ``reset_bluetooth_adapter``) and raises :class:`BluezScanConflictError`
-    so the caller exits and the next cron invocation runs in a new process.
-    Retrying ``find_nearby`` in the same interpreter after ``restart
-    bluetooth`` often fails again because Bleak/DBus client state is stale.
+
+    If BlueZ returns ``InProgress``, we first call ``StopDiscovery`` /
+    ``bluetoothctl scan off`` (orphaned discovery is a common cause), retry
+    the scan once, then restart the bluetooth service and retry again. Only
+    if all of that fails do we raise :class:`BluezScanConflictError`.
     """
     logger.info("Scanning for Aranet4 (%s)...", mac)
+    _clear_bluez_le_discovery()
 
     try:
         current = _scan_aranet4(mac)
-    except BleakDBusError as exc:
-        if getattr(exc, "dbus_error", "") == "org.bluez.Error.InProgress":
-            reset_bluetooth_adapter()
-            logger.info(
-                "Exiting this process without rescanning here (Bleak stays safer "
-                "after a bluetooth restart when the next run is a new interpreter). "
-                "Run --single again, or wait for cron."
-            )
-            raise BluezScanConflictError(
-                "First scan: org.bluez.Error.InProgress (another LE scan or stuck "
-                "bluez). Bluetooth was restarted above, then this run ends. "
-                "Run `uv run aranet_logger.py --single` once more. If the next run "
-                "still opens with InProgress, stop other BLE jobs on the Pi "
-                "(e.g. pkill -f airlab_collector), then sudo systemctl restart bluetooth."
-            ) from exc
-        raise
     except Exception as exc:
-        if "InProgress" in str(exc) or "org.bluez.Error.InProgress" in str(exc):
-            reset_bluetooth_adapter()
-            logger.info(
-                "Exiting without rescan in-process; run --single again or wait for cron."
+        if not _is_bluez_in_progress(exc):
+            raise
+        logger.warning(
+            "BlueZ InProgress on scan start — clearing stale LE discovery, then retrying"
+        )
+        _clear_bluez_le_discovery()
+        try:
+            current = _scan_aranet4(mac)
+        except Exception as exc2:
+            if not _is_bluez_in_progress(exc2):
+                raise
+            logger.warning(
+                "Still InProgress after StopDiscovery — restarting bluetooth, then retrying"
             )
-            raise BluezScanConflictError(
-                "First scan: InProgress (wrapped error). Bluetooth was restarted; "
-                "exit and retry like BleakDBusError InProgress."
-            ) from exc
-        raise
+            reset_bluetooth_adapter()
+            _clear_bluez_le_discovery()
+            time.sleep(1)
+            try:
+                current = _scan_aranet4(mac)
+            except Exception as exc3:
+                if not _is_bluez_in_progress(exc3):
+                    raise
+                raise BluezScanConflictError(
+                    "BLE scan still blocked after StopDiscovery + bluetooth restart + "
+                    "retries. Another process is likely scanning this adapter — check: "
+                    "ps aux | grep -E 'aranet_logger|airlab|bleak'; stagger BLE crons; "
+                    "BLUEZ_ADAPTER_DBUS_PATH if not hci0."
+                ) from exc3
 
     if current is None:
         logger.error("Aranet4 (%s) not found during scan", mac)
@@ -228,7 +270,10 @@ def _lock_holder_message() -> str:
     try:
         raw = LOCK_PATH.read_text(encoding="utf-8").strip().split()
         if not raw:
-            return f"lock busy; {LOCK_PATH} has no pid yet"
+            return (
+                f"lock busy; {LOCK_PATH} empty (holder between flock and pid write, "
+                "or old logger); try: ps aux | grep aranet_logger"
+            )
         pid = int(raw[0])
     except (OSError, ValueError):
         return f"lock busy; could not parse pid from {LOCK_PATH}"
@@ -258,10 +303,11 @@ def single_reading(mac: str, db_path: str) -> None:
         logger.warning("Another instance is already running, skipping — %s", _lock_holder_message())
         sys.exit(0)
 
+    # Write pid before truncating so the file is never empty while we hold the lock.
     lock_file.seek(0)
-    lock_file.truncate()
     lock_file.write(f"{os.getpid()}\n")
     lock_file.flush()
+    lock_file.truncate()
 
     try:
         conn = init_db(db_path)
