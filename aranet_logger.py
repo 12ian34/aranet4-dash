@@ -79,12 +79,48 @@ def init_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+def _cycle_bluetooth_adapter_power() -> None:
+    """Power off/on the default controller (stronger than restart alone).
+
+    After ``systemctl restart bluetooth``, some setups still return
+    ``InProgress`` on ``StartDiscovery`` until the **radio** is cycled
+    (PipeWire, another user session, or a wedged controller can cause this).
+    Needs permission to talk to bluetoothd (usually ``bluetooth`` group).
+    """
+    logger.info("Cycling Bluetooth adapter power (bluetoothctl off/on)...")
+    for cmd, pause in (
+        (["bluetoothctl", "--timeout", "8", "power", "off"], 2.0),
+        (["bluetoothctl", "--timeout", "8", "power", "on"], 4.0),
+    ):
+        try:
+            r = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=12,
+                check=False,
+            )
+            if r.returncode != 0 and (r.stderr or r.stdout):
+                logger.debug(
+                    "bluetoothctl %s: rc=%s err=%s",
+                    cmd[-1],
+                    r.returncode,
+                    (r.stderr or r.stdout).strip()[:200],
+                )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            logger.debug("bluetoothctl power %s: %s", cmd[-1], exc)
+        time.sleep(pause)
+
+
 def reset_bluetooth_adapter() -> None:
     """Reset the Bluetooth adapter to clear stuck scan state in bluez.
 
     Uses systemctl to restart the bluetooth service, which clears any
     stuck scan state in bluez. Requires a sudoers rule (no password):
         ian ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bluetooth
+
+    Then cycles ``bluetoothctl power off/on`` so the controller drops any
+    stuck LE discovery session that survives a daemon-only restart.
     """
     logger.warning("Resetting Bluetooth adapter to clear stuck scan...")
     try:
@@ -93,6 +129,8 @@ def reset_bluetooth_adapter() -> None:
             check=True, timeout=15, capture_output=True,
         )
         time.sleep(5)  # give bluez time to reinitialize before callers scan again
+        _cycle_bluetooth_adapter_power()
+        _clear_bluez_le_discovery()
         logger.info("Bluetooth adapter reset complete")
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         logger.error("Failed to reset Bluetooth adapter: %s", exc)
@@ -201,6 +239,9 @@ def run_ble_recovery_scan() -> None:
     if not mac:
         print("", flush=True)
         sys.exit(2)
+    _clear_bluez_le_discovery()
+    # Parent just restarted bluetoothd + cycled power; other daemons may attach briefly.
+    time.sleep(8)
     _clear_bluez_le_discovery()
     try:
         data = _scan_aranet4(mac)
