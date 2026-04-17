@@ -226,6 +226,14 @@ sqlite3 /var/lib/aranet4-dash/aranet.db "VACUUM;"
 
 ## Troubleshooting
 
+### `InProgress` / scan fails even after `systemctl restart bluetooth`
+
+If **`bluetoothctl scan on`** prints **`Failed to start discovery: org.bluez.Error.InProgress`** and **`dmesg | grep -i hci`** shows lines like **`Opcode 0x200c failed: -16`** or **`Unable to disable scanning`**, the **kernel / hci0 firmware** is wedged — no amount of Python or `StopDiscovery` fixes that.
+
+**Recover:** reboot the Pi (`sudo reboot`). After reboot, run `uv run aranet_logger.py --single` once.
+
+**Why it happens:** desktops (or headless Pis that still run **WirePlumber** / **PipeWire** for the login manager) register many Bluetooth media endpoints; combined with repeated scan/restart loops they can leave the controller busy. The logger only does **`systemctl restart bluetooth`** once per `InProgress` then one retry — it does **not** run `bluetoothctl power` loops (those made “Failed to set mode: Busy” worse on a wedged adapter).
+
 ### Device not found during scan
 
 - Make sure the Aranet4 is within Bluetooth range
