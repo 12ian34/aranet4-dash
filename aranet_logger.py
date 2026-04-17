@@ -5,6 +5,7 @@ import argparse
 import asyncio
 import errno
 import fcntl
+import json
 import logging
 import os
 import signal
@@ -91,7 +92,7 @@ def reset_bluetooth_adapter() -> None:
             ["sudo", "-n", "systemctl", "restart", "bluetooth"],
             check=True, timeout=15, capture_output=True,
         )
-        time.sleep(3)  # give bluez time to reinitialize
+        time.sleep(5)  # give bluez time to reinitialize before callers scan again
         logger.info("Bluetooth adapter reset complete")
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
         logger.error("Failed to reset Bluetooth adapter: %s", exc)
@@ -151,6 +152,70 @@ def _scan_aranet4(mac: str) -> dict | None:
     return result["reading"]
 
 
+def _reading_dict_from_scan_result(current) -> dict:
+    """Build the DB/log reading dict from aranet4 readings object or recovery JSON dict."""
+    if isinstance(current, dict):
+        return current
+    return {
+        "co2_ppm": current.co2,
+        "temperature_c": current.temperature,
+        "humidity_percent": current.humidity,
+        "pressure_hpa": current.pressure,
+        "battery_percent": current.battery,
+    }
+
+
+def _scan_via_fresh_process_after_bluetooth_restart() -> dict | None:
+    """Run one BLE scan in a new interpreter (clean Bleak/D-Bus after bluetoothd restart).
+
+    The parent process can keep a stale D-Bus view after ``systemctl restart bluetooth``,
+    so ``find_nearby`` keeps returning ``InProgress`` even when the adapter is idle.
+    """
+    script = Path(__file__).resolve()
+    cp = subprocess.run(
+        [sys.executable, str(script), "--ble-recovery-scan"],
+        cwd=str(script.parent),
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if cp.returncode != 0:
+        tail = ((cp.stderr or "").strip() or (cp.stdout or "").strip())[:400]
+        logger.warning("Fresh-process BLE scan failed rc=%s: %s", cp.returncode, tail)
+        return None
+    line = (cp.stdout or "").strip()
+    if not line:
+        return None
+    try:
+        return json.loads(line)
+    except json.JSONDecodeError:
+        logger.warning("Fresh-process BLE scan: invalid JSON: %r", line[:200])
+        return None
+
+
+def run_ble_recovery_scan() -> None:
+    """Entry point for ``--ble-recovery-scan`` (stdout = one JSON object, then exit)."""
+    setup_logging()
+    mac, _, _ = load_config()
+    if not mac:
+        print("", flush=True)
+        sys.exit(2)
+    _clear_bluez_le_discovery()
+    try:
+        data = _scan_aranet4(mac)
+    except Exception as exc:
+        logger.error("ble-recovery-scan failed: %s", exc)
+        print("", flush=True)
+        sys.exit(1)
+    if data is None:
+        print("", flush=True)
+        sys.exit(1)
+    reading = _reading_dict_from_scan_result(data)
+    print(json.dumps(reading), flush=True)
+    sys.exit(0)
+
+
 def read_aranet4(mac: str) -> dict | None:
     """Read current measurements from Aranet4 via BLE advertisement scan.
 
@@ -159,8 +224,10 @@ def read_aranet4(mac: str) -> dict | None:
 
     If BlueZ returns ``InProgress``, we first call ``StopDiscovery`` /
     ``bluetoothctl scan off`` (orphaned discovery is a common cause), retry
-    the scan once, then restart the bluetooth service and retry again. Only
-    if all of that fails do we raise :class:`BluezScanConflictError`.
+    the scan once, then restart the bluetooth service. The next attempt runs
+    ``find_nearby`` in a **fresh Python subprocess** so Bleak/D-Bus match the
+    restarted bluetoothd; only if that and a final in-process try fail do we
+    raise :class:`BluezScanConflictError`.
     """
     logger.info("Scanning for Aranet4 (%s)...", mac)
     _clear_bluez_le_discovery()
@@ -184,30 +251,31 @@ def read_aranet4(mac: str) -> dict | None:
             )
             reset_bluetooth_adapter()
             _clear_bluez_le_discovery()
-            time.sleep(1)
-            try:
-                current = _scan_aranet4(mac)
-            except Exception as exc3:
-                if not _is_bluez_in_progress(exc3):
-                    raise
-                raise BluezScanConflictError(
-                    "BLE scan still blocked after StopDiscovery + bluetooth restart + "
-                    "retries. Another process is likely scanning this adapter — check: "
-                    "ps aux | grep -E 'aranet_logger|airlab|bleak'; stagger BLE crons; "
-                    "BLUEZ_ADAPTER_DBUS_PATH if not hci0."
-                ) from exc3
+            time.sleep(5)
+            logger.info(
+                "Retrying BLE scan in a fresh Python process (clean D-Bus after bluetooth restart)"
+            )
+            recovery = _scan_via_fresh_process_after_bluetooth_restart()
+            if recovery is not None:
+                current = recovery
+            else:
+                try:
+                    current = _scan_aranet4(mac)
+                except Exception as exc3:
+                    if not _is_bluez_in_progress(exc3):
+                        raise
+                    raise BluezScanConflictError(
+                        "BLE scan still blocked after StopDiscovery + bluetooth restart + "
+                        "fresh-process retry + in-process retry. Another process may be "
+                        "scanning — check: ps aux | grep -E 'aranet_logger|bleak'; verify "
+                        "BLUEZ_ADAPTER_DBUS_PATH matches `busctl tree org.bluez`."
+                    ) from exc3
 
     if current is None:
         logger.error("Aranet4 (%s) not found during scan", mac)
         return None
 
-    reading = {
-        "co2_ppm": current.co2,
-        "temperature_c": current.temperature,
-        "humidity_percent": current.humidity,
-        "pressure_hpa": current.pressure,
-        "battery_percent": current.battery,
-    }
+    reading = _reading_dict_from_scan_result(current)
 
     logger.info(
         "CO2=%d ppm  Temp=%.1f°C  Humidity=%d%%  Pressure=%.1f hPa  Battery=%d%%",
@@ -432,7 +500,15 @@ def main() -> None:
         action="store_true",
         help="Take a single reading and exit (for testing)",
     )
+    parser.add_argument(
+        "--ble-recovery-scan",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
+
+    if args.ble_recovery_scan:
+        run_ble_recovery_scan()  # always sys.exit
 
     if args.single:
         single_reading(mac, db_path)
