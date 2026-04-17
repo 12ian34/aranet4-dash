@@ -45,7 +45,7 @@ Table `aranet_readings` in SQLite:
 
 ## Key decisions
 - **uv for Python**: All dependency management and script execution via `uv sync` / `uv run`. No manual venv or pip.
-- **Crontab**: Script runs in `--single` mode per invocation. Simpler than a daemon — no long-running process to manage. Uses `fcntl.flock()` to prevent concurrent runs (cron does not wait for previous invocations).
+- **Crontab**: Script runs in `--single` mode per invocation. Simpler than a daemon — no long-running process to manage. Uses `fcntl.flock()` on `/tmp/aranet4-dash.lock` to prevent concurrent runs (cron does not wait for previous invocations). The lock file records the holder’s PID; if a manual run prints “already running”, that is usually cron mid-scan — wait or `ps` the pid.
 - **`.env` resolved relative to script**: `load_dotenv()` uses the script's own directory, so cron jobs work regardless of cwd.
 - **BLE advertisement scan**: Uses `aranet4.client.find_nearby()` to read from BLE advertisements. No GATT connection needed — more reliable on Linux/bluez than direct connect (which hangs on this device). Requires "Smart Home integrations" enabled in the Aranet Home app.
 - **Validation**: Strict ranges (CO2 400-5000, temp -10-50C, humidity 0-100%, pressure 900-1100 hPa, battery 0-100%). Readings outside range are logged and skipped.

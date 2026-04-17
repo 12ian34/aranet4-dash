@@ -3,6 +3,7 @@
 
 import argparse
 import asyncio
+import errno
 import fcntl
 import logging
 import os
@@ -222,14 +223,45 @@ def insert_reading(conn: sqlite3.Connection, reading: dict) -> None:
 LOCK_PATH = Path("/tmp/aranet4-dash.lock")
 
 
+def _lock_holder_message() -> str:
+    """Best-effort hint when the lock file is busy (Linux: pid in file)."""
+    try:
+        raw = LOCK_PATH.read_text(encoding="utf-8").strip().split()
+        if not raw:
+            return f"lock busy; {LOCK_PATH} has no pid yet"
+        pid = int(raw[0])
+    except (OSError, ValueError):
+        return f"lock busy; could not parse pid from {LOCK_PATH}"
+
+    try:
+        os.kill(pid, 0)
+    except OSError as exc:
+        if exc.errno == errno.ESRCH:
+            return (
+                f"lock busy; {LOCK_PATH} lists pid {pid} but that process is gone "
+                "(retry in a second)"
+            )
+        if exc.errno == errno.EPERM:
+            return f"lock busy; pid {pid} exists (inspect with sudo ps -p {pid})"
+        raise
+    return f"pid {pid} holds the lock (e.g. cron); inspect: ps -p {pid} -o args="
+
+
 def single_reading(mac: str, db_path: str) -> None:
     """Take a single reading and exit. Uses a file lock to prevent overlapping runs."""
-    lock_file = open(LOCK_PATH, "w")
+    # Open without truncating so we do not wipe another process's pid before flock.
+    lock_file = open(LOCK_PATH, "a+", encoding="utf-8")
     try:
         fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
-        logger.warning("Another instance is already running, skipping")
+        lock_file.close()
+        logger.warning("Another instance is already running, skipping — %s", _lock_holder_message())
         sys.exit(0)
+
+    lock_file.seek(0)
+    lock_file.truncate()
+    lock_file.write(f"{os.getpid()}\n")
+    lock_file.flush()
 
     try:
         conn = init_db(db_path)
