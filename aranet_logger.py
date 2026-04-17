@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 import aranet4
+from bleak.exc import BleakDBusError
 from dotenv import load_dotenv
 
 # Validation ranges
@@ -26,6 +27,10 @@ VALID_RANGES = {
 }
 
 logger = logging.getLogger("aranet_logger")
+
+
+class BluezScanConflictError(Exception):
+    """BlueZ scan InProgress after adapter restart — need a fresh OS process to scan."""
 
 
 def setup_logging() -> None:
@@ -111,20 +116,32 @@ def read_aranet4(mac: str) -> dict | None:
 
     Uses find_nearby() which reads from BLE advertisements — no GATT
     connection required. More reliable than direct connect on Linux/bluez.
-    If bluez has a stuck scan from a previous crashed process, resets the
-    adapter and retries once.
+    If bluez reports ``InProgress``, restarts the bluetooth service (see
+    ``reset_bluetooth_adapter``) and raises :class:`BluezScanConflictError`
+    so the caller exits and the next cron invocation runs in a new process.
+    Retrying ``find_nearby`` in the same interpreter after ``restart
+    bluetooth`` often fails again because Bleak/DBus client state is stale.
     """
     logger.info("Scanning for Aranet4 (%s)...", mac)
 
     try:
         current = _scan_aranet4(mac)
-    except Exception as exc:
-        if "InProgress" in str(exc):
+    except BleakDBusError as exc:
+        if getattr(exc, "dbus_error", "") == "org.bluez.Error.InProgress":
             reset_bluetooth_adapter()
-            logger.info("Retrying scan after adapter reset...")
-            current = _scan_aranet4(mac)
-        else:
-            raise
+            raise BluezScanConflictError(
+                "BLE InProgress — bluetooth was restarted; exit this process so the "
+                "next cron run uses a clean Bleak client. If this repeats: "
+                "pkill -f 'aranet_logger.py --single' and stagger other BLE crons."
+            ) from exc
+        raise
+    except Exception as exc:
+        if "InProgress" in str(exc) or "org.bluez.Error.InProgress" in str(exc):
+            reset_bluetooth_adapter()
+            raise BluezScanConflictError(
+                "BLE InProgress (wrapped error) — same recovery as BleakDBusError."
+            ) from exc
+        raise
 
     if current is None:
         logger.error("Aranet4 (%s) not found during scan", mac)
@@ -206,7 +223,12 @@ def single_reading(mac: str, db_path: str) -> None:
     try:
         conn = init_db(db_path)
         try:
-            reading = read_aranet4(mac)
+            try:
+                reading = read_aranet4(mac)
+            except BluezScanConflictError as exc:
+                logger.error("%s", exc)
+                sys.exit(1)
+
             if reading is None:
                 logger.error("Failed to read from Aranet4")
                 sys.exit(1)
@@ -272,6 +294,18 @@ async def main_loop(mac: str, db_path: str, poll_interval: int) -> None:
                     logger.info("Running VACUUM on database")
                     conn.execute("VACUUM")
                     readings_since_vacuum = 0
+
+            except BluezScanConflictError as exc:
+                logger.warning("%s", exc)
+                delay = min(backoff, max_backoff)
+                logger.info("Retrying in %ds", delay)
+                try:
+                    await asyncio.wait_for(shutdown.wait(), timeout=delay)
+                    break  # shutdown signalled during backoff
+                except asyncio.TimeoutError:
+                    pass
+                backoff = min(backoff * 2, max_backoff)
+                continue
 
             except Exception:
                 logger.exception("Error during read cycle")
