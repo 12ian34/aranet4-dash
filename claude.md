@@ -64,3 +64,9 @@ Table `aranet_readings` in SQLite:
 ## Current status
 - BLE advertisement scan confirmed working on Raspberry Pi. GATT direct connect does not work (hangs on service discovery).
 - Repo is public-ready — no personal paths or usernames in tracked files. All user-specific config lives in `.env` (gitignored).
+
+## Troubleshooting (Pi / BlueZ)
+- **Symptom**: Grafana stops updating; `cron.log` shows `bleak.exc.BleakDBusError: [org.bluez.Error.InProgress] Operation already in progress` and repeated “Resetting Bluetooth adapter…”.
+- **Cause**: BlueZ only allows one active LE scan at a time; overlapping scans (e.g. another cron job on `* * * * *` using BLE, or a stuck `aranet_logger` still holding the adapter) leave the adapter in “in progress” and every new scan fails.
+- **Recover** (on the Pi): `pkill -f 'aranet_logger.py --single'` then `sudo systemctl restart bluetooth`. See `.cursor/skills/crontab-scheduling/SKILL.md` for the full pile-up story (`fcntl` lock + cron).
+- **Prevent**: Stagger BLE-using crontabs — this project’s recommended line uses `/usr/bin/sleep 30 &&` before `uv run` so the Aranet scan starts ~30s after each minute boundary instead of colliding with another `* * * * *` BLE job.

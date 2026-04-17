@@ -113,12 +113,12 @@ Cron always uses `/bin/sh`, so fish vs bash doesn't matter here.
 crontab -e
 ```
 
-Add these lines to poll every minute:
+Add these lines to poll every minute. The `sleep 30` staggers the BLE scan from other jobs that fire at the top of the minute (BlueZ allows only one active LE scan at a time).
 
 ```cron
 PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 
-* * * * * cd $HOME/dev/aranet4-dash && uv run aranet_logger.py --single >> $HOME/dev/aranet4-dash/cron.log 2>&1
+* * * * * /usr/bin/sleep 30 && cd $HOME/dev/aranet4-dash && uv run aranet_logger.py --single >> $HOME/dev/aranet4-dash/cron.log 2>&1
 ```
 
 The `PATH` line ensures cron can find `uv`. Save and exit, then verify:
@@ -126,6 +126,8 @@ The `PATH` line ensures cron can find `uv`. Save and exit, then verify:
 ```sh
 crontab -l
 ```
+
+After `git pull` on the Pi, re-open `crontab -e` and update this line if it changed in the repo — git does not sync crontab for you.
 
 Check it's working after a few minutes:
 

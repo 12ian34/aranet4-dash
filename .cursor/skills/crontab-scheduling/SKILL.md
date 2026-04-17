@@ -10,12 +10,13 @@ description: Crontab setup for periodic script execution on Linux. Use when conf
 ```cron
 PATH=$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin
 
-* * * * * cd $HOME/dev/aranet4-dash && uv run aranet_logger.py --single >> $HOME/dev/aranet4-dash/cron.log 2>&1
+* * * * * /usr/bin/sleep 30 && cd $HOME/dev/aranet4-dash && uv run aranet_logger.py --single >> $HOME/dev/aranet4-dash/cron.log 2>&1
 ```
 
 ## Key points
 
 - **PATH**: cron starts with a minimal PATH. Set it at the top of crontab so `uv` is found.
+- **30s offset**: Cron has no sub-minute schedule; `/usr/bin/sleep 30 &&` defers this job until ~30s after each minute tick so it does not start a BLE scan at the same instant as another `* * * * *` job on the Pi (BlueZ: `Operation already in progress`).
 - **`$HOME`**: cron sets `HOME` automatically — use `$HOME` (not `~`) in crontab lines since tilde expansion is shell-specific.
 - **`cd` first**: the script resolves `.env` relative to its own directory, but `cd` ensures any relative paths in the command work too.
 - **`--single` mode**: one reading per invocation, then exit. Cron handles the scheduling. Simpler than a long-running daemon.
@@ -33,8 +34,10 @@ sudo systemctl status cron
 # Watch the log
 tail -f ~/dev/aranet4-dash/cron.log
 
-# Test the exact command cron would run
+# Quick manual test (no wait)
 cd ~/dev/aranet4-dash && uv run aranet_logger.py --single
+# Match production cron exactly (30s delay like crontab)
+/usr/bin/sleep 30 && cd ~/dev/aranet4-dash && uv run aranet_logger.py --single
 ```
 
 ## Concurrency protection
@@ -52,6 +55,6 @@ Cron does **not** wait for the previous invocation to finish. If a run takes lon
 
 ## Timing
 
-- `* * * * *` = every minute.
+- `* * * * *` = every minute; with `sleep 30`, the process still wakes every minute but work begins ~30s later.
 - At 1-minute intervals, the DB grows ~15 MB/year.
 - The BLE scan (`duration=10`) plus DB write takes ~10-12 seconds per invocation, well within the 1-minute window.
