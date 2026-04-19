@@ -1,0 +1,14 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: ntfy
+    receivers:
+      - uid: ntfy-aranet-down
+        type: webhook
+        settings:
+          url: https://ntfy.sh/ian-aranet-down
+          httpMethod: POST
+          authorization_scheme: Bearer
+          authorization_credentials: $__env{NTFY_TOKEN}
+        disableResolveMessage: false

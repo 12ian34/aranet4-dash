@@ -191,6 +191,39 @@ The dashboard includes:
 
 > **Note:** The `timestamp` column stores SQLite datetime strings, but the SQLite datasource plugin needs numeric Unix epoch values. Time series queries convert with `CAST(strftime('%s', timestamp) AS INTEGER)` (seconds). The bar gauge "Last Updated" field uses `* 1000` (milliseconds) so Grafana's `dateTimeFromNow` unit can display relative time like "5 min ago".
 
+## 12. (Optional) Alerts via ntfy
+
+Grafana can ping your phone via [ntfy](https://ntfy.sh) when the logger stops producing readings — typically a wedged BLE controller (see Troubleshooting). Provisioning YAML lives at [grafana/provisioning/alerting/](grafana/provisioning/alerting/).
+
+**a) Subscribe to the topic on your phone.** Install the ntfy app, add topic `ian-aranet-down` (or whatever you chose — match `url:` in `contactpoints.yaml`). If the topic requires auth, sign in with the same ntfy account whose token you'll use below.
+
+**b) Put the ntfy token where Grafana can read it.** Grafana's systemd service reads `/etc/default/grafana-server`. Append:
+
+```sh
+sudo sh -c 'echo "NTFY_TOKEN=tk_your_token_here" >> /etc/default/grafana-server'
+```
+
+Keep the file `root`-owned and `640` — it holds a secret.
+
+**c) Deploy the YAML.** Grafana auto-loads anything in `/etc/grafana/provisioning/alerting/`:
+
+```sh
+sudo cp grafana/provisioning/alerting/*.yaml /etc/grafana/provisioning/alerting/
+sudo chown root:grafana /etc/grafana/provisioning/alerting/*.yaml
+sudo chmod 640 /etc/grafana/provisioning/alerting/*.yaml
+sudo systemctl restart grafana-server
+```
+
+**d) Verify.** Open Grafana → **Alerting > Alert rules**. You should see `Aranet4 readings stale` in the `Aranet4` folder. **Contact points** should list `ntfy`. Hit **Test** on the contact point — a test notification should land on your phone.
+
+**What triggers / how often you're pinged:**
+
+- Alert fires when `seconds_since_last > 300` (5 min) for at least 1 minute.
+- Fires once immediately, then re-sends every `repeat_interval: 1h` while still firing.
+- Sends a resolved notification the moment a new reading lands.
+
+Tune thresholds in [rules.yaml](grafana/provisioning/alerting/rules.yaml) (`params: [300]`) or cadence in [policies.yaml](grafana/provisioning/alerting/policies.yaml) (`repeat_interval`) and restart Grafana.
+
 ## Database schema
 
 ```sql

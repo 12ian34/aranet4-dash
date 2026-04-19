@@ -1,0 +1,60 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: aranet4
+    folder: Aranet4
+    interval: 1m
+    rules:
+      - uid: aranet-stale-readings
+        title: Aranet4 readings stale
+        condition: C
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 1m
+        labels:
+          severity: warning
+          service: aranet4
+        annotations:
+          summary: Aranet4 has not reported a reading in over 5 minutes.
+          description: |
+            No new row in aranet_readings for >300s. Cron/BLE scan likely failing.
+            SSH to the Pi and check: tail -n 50 ~/dev/aranet4-dash/cron.log
+            If dmesg shows "Opcode 0x200c failed: -16", reboot the Pi.
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: bfco9zy6et43kd
+            model:
+              refId: A
+              queryType: table
+              rawQueryText: |
+                SELECT CAST(strftime('%s','now') AS INTEGER)
+                     - CAST(strftime('%s', MAX(timestamp)) AS INTEGER)
+                       AS seconds_since_last
+                FROM aranet_readings
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              reducer: last
+              expression: A
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [300]

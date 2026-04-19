@@ -63,6 +63,7 @@ Table `aranet_readings` in SQLite:
 
 ## Current status
 - BLE advertisement scan confirmed working on Raspberry Pi. GATT direct connect does not work (hangs on service discovery).
+- **Apr 2026**: After an hci wedge (`InProgress` + `dmesg` scan errors), **reboot** + simplified logger (single `systemctl restart bluetooth` + one retry) restored reliable `--single` / cron runs on the deployment Pi.
 - Repo is public-ready — no personal paths or usernames in tracked files. All user-specific config lives in `.env` (gitignored).
 
 ## Troubleshooting (Pi / BlueZ)
