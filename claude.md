@@ -63,10 +63,12 @@ Table `aranet_readings` in SQLite:
 
 ## Current status
 - BLE advertisement scan confirmed working on Raspberry Pi. GATT direct connect does not work (hangs on service discovery).
-- **Apr 2026**: After an hci wedge (`InProgress` + `dmesg` scan errors), **reboot** + simplified logger (single `systemctl restart bluetooth` + one retry) restored reliable `--single` / cron runs on the deployment Pi.
+- **Apr 2026**: `InProgress` + `Opcode 0x200c failed: -16` / `Unable to disable scanning` kept recurring after `systemctl restart bluetooth` because that only bounces `bluetoothd` — the stuck state is kernel-side hci0. Logger now recovers with an **rfkill block/unblock cycle** (bounces the HCI device, resets kernel scanning state). Confirmed working on the deployment Pi; reboot is now the last-resort fallback only.
 - Repo is public-ready — no personal paths or usernames in tracked files. All user-specific config lives in `.env` (gitignored).
 
 ## Troubleshooting (Pi / BlueZ)
-- **`aranet_logger.py`** (minimal): on `org.bluez.Error.InProgress` it runs **`sudo systemctl restart bluetooth`** once, waits 5s, retries **one** BLE scan, then gives up (`--single` exits 1). No D-Bus `StopDiscovery`, no `bluetoothctl power` loops, no subprocess recovery (those did not fix a wedged hci and could worsen “Busy” with WirePlumber).
-- **Kernel-wedged hci0**: if `dmesg | grep -i hci` shows **`Opcode 0x200c failed: -16`** / **`Unable to disable scanning`** and even **`bluetoothctl scan on`** says **`InProgress`**, **reboot the Pi** — that is below userspace. See README “Troubleshooting”.
+- **`aranet_logger.py`** recovery on `org.bluez.Error.InProgress`: **`sudo rfkill block bluetooth`** → 2s sleep → **`sudo rfkill unblock bluetooth`** → 3s sleep → **one** BLE scan retry, then gives up (`--single` exits 1). Sudoers needs `NOPASSWD: /usr/sbin/rfkill` for the cron user. No D-Bus `StopDiscovery`, no `bluetoothctl power` loops, no `systemctl restart bluetooth` (that doesn't clear kernel hci state so doesn't help).
+- **Why rfkill, not `systemctl restart bluetooth`**: `-16 EBUSY` on opcode `0x200c` (LE Set Scan Enable) is kernel-side — the kernel believes scanning is already enabled. Restarting the userspace daemon leaves that state intact. `rfkill` brings the radio down, which resets it.
+- **If `rfkill` doesn't clear it** (rare, controller firmware wedge): `sudo reboot`. Check `dmesg | grep -i hci` afterwards to confirm whether the wedge recurs.
+- **Other causes worth ruling out** if wedges keep recurring: Aranet paired to `bluetoothd` (auto-connect races the logger's scan — `bluetoothctl paired-devices`; advertisement reads don't need pairing, so `bluetoothctl remove <MAC>` is safe), a stray `bluetoothctl scan on`, another Python/bleak process holding a scan.
 - **Cron overlap**: `fcntl` lock + optional `sleep 30` in crontab (see `.cursor/skills/crontab-scheduling/SKILL.md`). **airlab-dash** `airlab_collector.py` is MQTT-only — not a BLE competitor.

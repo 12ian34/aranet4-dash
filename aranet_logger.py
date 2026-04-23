@@ -74,22 +74,34 @@ def init_db(db_path: str) -> sqlite3.Connection:
 
 
 def reset_bluetooth_adapter() -> None:
-    """Restart bluetoothd only (no bluetoothctl power — that fights a busy controller).
+    """Power-cycle the bluetooth radio via rfkill to reset kernel HCI state.
 
-    Requires sudoers: ``ian ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart bluetooth``
+    ``systemctl restart bluetooth`` only bounces the userspace daemon, which
+    does not clear ``-16 EBUSY`` on opcode ``0x200c`` (LE Set Scan Enable) —
+    that is kernel-side hci0 state. ``rfkill block`` then ``unblock`` brings
+    the HCI device down and up, which does clear it.
+
+    Requires sudoers: ``ian ALL=(ALL) NOPASSWD: /usr/sbin/rfkill``
     """
-    logger.warning("Restarting bluetooth service (systemctl)...")
+    logger.warning("Power-cycling bluetooth radio via rfkill...")
     try:
         subprocess.run(
-            ["sudo", "-n", "systemctl", "restart", "bluetooth"],
+            ["sudo", "-n", "/usr/sbin/rfkill", "block", "bluetooth"],
             check=True,
-            timeout=30,
+            timeout=10,
             capture_output=True,
         )
-        time.sleep(5)
-        logger.info("Bluetooth service restarted")
+        time.sleep(2)
+        subprocess.run(
+            ["sudo", "-n", "/usr/sbin/rfkill", "unblock", "bluetooth"],
+            check=True,
+            timeout=10,
+            capture_output=True,
+        )
+        time.sleep(3)
+        logger.info("Bluetooth radio power-cycled")
     except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
-        logger.error("Failed to restart bluetooth: %s", exc)
+        logger.error("Failed to power-cycle bluetooth: %s", exc)
 
 
 def _scan_aranet4(mac: str) -> dict | None:
@@ -115,9 +127,9 @@ def _is_in_progress_error(exc: BaseException) -> bool:
 def read_aranet4(mac: str) -> dict | None:
     """Read current measurements from Aranet4 via BLE advertisement scan.
 
-    On ``InProgress``, restarts bluetoothd once and retries one scan. If the
-    kernel hci layer is wedged (see README), that is not fixable from Python —
-    reboot the Pi.
+    On ``InProgress``, power-cycles the bluetooth radio via rfkill and
+    retries one scan. If that still fails, something beyond the logger is
+    holding a scan (check ``dmesg`` / other BLE consumers).
     """
     logger.info("Scanning for Aranet4 (%s)...", mac)
 
@@ -127,16 +139,15 @@ def read_aranet4(mac: str) -> dict | None:
         if not _is_in_progress_error(exc):
             raise
         logger.warning(
-            "BlueZ InProgress — restarting bluetooth once, then one retry. "
-            "If scans keep failing, check ``dmesg | grep -i hci`` for "
-            "``Unable to disable scanning`` / ``Opcode 0x200c`` (wedged "
-            "controller → reboot Pi)."
+            "BlueZ InProgress — power-cycling bluetooth radio (rfkill) and "
+            "retrying once. If scans keep failing, check ``dmesg | grep -i "
+            "hci`` and look for other BLE consumers holding a scan."
         )
         reset_bluetooth_adapter()
         try:
             current = _scan_aranet4(mac)
         except Exception as exc2:
-            logger.error("BLE scan failed after bluetooth restart: %s", exc2)
+            logger.error("BLE scan failed after rfkill cycle: %s", exc2)
             return None
 
     if current is None:

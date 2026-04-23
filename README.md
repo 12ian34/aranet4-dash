@@ -259,13 +259,34 @@ sqlite3 /var/lib/aranet4-dash/aranet.db "VACUUM;"
 
 ## Troubleshooting
 
-### `InProgress` / scan fails even after `systemctl restart bluetooth`
+### `InProgress` / `Opcode 0x200c failed: -16`
 
-If **`bluetoothctl scan on`** prints **`Failed to start discovery: org.bluez.Error.InProgress`** and **`dmesg | grep -i hci`** shows lines like **`Opcode 0x200c failed: -16`** or **`Unable to disable scanning`**, the **kernel / hci0 firmware** is wedged — no amount of Python or `StopDiscovery` fixes that.
+If **`bluetoothctl scan on`** prints **`Failed to start discovery: org.bluez.Error.InProgress`** and **`dmesg | grep -i hci`** shows lines like **`Opcode 0x200c failed: -16`** / **`Unable to disable scanning`**, the kernel's hci0 state thinks scanning is already enabled. `systemctl restart bluetooth` only bounces the userspace daemon — that state survives and `InProgress` keeps coming back.
 
-**Recover:** reboot the Pi (`sudo reboot`). After reboot, run `uv run aranet_logger.py --single` once.
+**Recover from userspace** (no reboot):
 
-**Why it happens:** desktops (or headless Pis that still run **WirePlumber** / **PipeWire** for the login manager) register many Bluetooth media endpoints; combined with repeated scan/restart loops they can leave the controller busy. The logger only does **`systemctl restart bluetooth`** once per `InProgress` then one retry — it does **not** run `bluetoothctl power` loops (those made “Failed to set mode: Busy” worse on a wedged adapter).
+```sh
+sudo rfkill block bluetooth; sleep 2; sudo rfkill unblock bluetooth
+```
+
+Blocking/unblocking the radio brings the HCI device down and up, which clears the stuck "scanning enabled" flag. `aranet_logger.py` does this automatically on `InProgress` — for that to work from cron, add a no-password sudoers entry:
+
+```sh
+sudo visudo -f /etc/sudoers.d/aranet4-dash
+```
+
+```sudoers
+ian ALL=(ALL) NOPASSWD: /usr/sbin/rfkill
+```
+
+(Adjust the username to match the cron user. The old `systemctl restart bluetooth` entry can be removed — the logger no longer uses it.)
+
+**Likely causes of the wedge** (worth eliminating if it recurs):
+
+- A scan enabled LE scanning but the process died before disabling it. Next call → `EBUSY`. `rfkill` cycle recovers.
+- Another BLE consumer (a paired device with auto-connect, a stray `bluetoothctl scan on`, another Python/bleak process) is racing the logger's scan. Check: `bluetoothctl paired-devices`, `ps aux | grep -E 'bluetoothctl|aranet|bleak'`. Advertisement reads do **not** need pairing — `bluetoothctl remove <MAC>` if the Aranet is paired.
+
+**If `rfkill` doesn't clear it:** rare, but the controller firmware itself can wedge. Then reboot (`sudo reboot`).
 
 ### Device not found during scan
 
